@@ -441,7 +441,7 @@
         const sorted = Array.from(statsMap.entries()).filter(([_,d])=>d.parties>0).sort((a,b)=>b[1].totalPoints - a[1].totalPoints);
         const ratingDiv = document.getElementById('ratingArea');
         if (sorted.length === 0) { ratingDiv.innerHTML = '<h3>🏅 РЕЙТИНГ</h3><p>Нет данных</p>'; return; }
-        let html = '<h3>🏅 РЕЙТИНГ</h3><div class="table-wrapper"><table><thead><tr><th>#</th><th>Игрок</th><th>Партий</th><th>Сумма</th><th>Среднее</th></tr></thead><tbody>';
+        let html = '<h3>🏅 РЕЙТИНГ</h3><div class="table-wrapper"><table style="min-width:400px;"><thead><tr><th>#</th><th>Игрок</th><th>Партий</th><th>Сумма</th><th>Среднее</th></tr></thead><tbody>';
         sorted.forEach(([player, data], idx) => {
             const avg = data.parties ? (data.totalPoints / data.parties).toFixed(1) : 0;
             html += `<tr><td>${idx+1}</td><td><strong>${player}</strong></td><td>${data.parties}</td><td>${data.totalPoints}</td><td>${avg}</td></tr>`;
@@ -509,11 +509,11 @@
     function printReport() {
         const win = window.open('', '_blank');
         const stats = computeStats();
-        let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Дартс отчёт</title><style>body{font-family:sans-serif;margin:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px}</style></head><body><h1>Отчёт по дартсу</h1><p>${new Date().toLocaleString()}</p><h2>Статистика</h2><table><tr><th>Игрок</th><th>Партий</th><th>Сумма</th><th>Рекорд</th></tr>`;
+        let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Дартс отчёт</title><style>body{font-family:sans-serif;margin:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px}</style></head><body><h1>Отчёт по дартсу</h1><p>${new Date().toLocaleString()}</p><h2>Статистика</h2><table><thead><tr><th>Игрок</th><th>Партий</th><th>Сумма</th><th>Рекорд</th></tr></thead><tbody>`;
         for (let [p,d] of stats.entries()) { html += `<tr><td>${p}</td><td>${d.parties}</td><td>${d.totalPoints}</td><td>${d.bestParty}</td></tr>`; }
-        html += `</table><h2>История</h2><table><tr><th>Дата</th><th>Игрок</th><th>Очки</th><th>Сумма</th></tr>`;
+        html += `</tbody></table><h2>История</h2><table><thead><tr><th>Дата</th><th>Игрок</th><th>Очки</th><th>Сумма</th></tr></thead><tbody>`;
         partiesData.forEach(p => { html += `<tr><td>${p.dateStr}</td><td>${p.player}</td><td>${p.scores.join(', ')}</td><td>${p.total}</td></tr>`; });
-        html += `</table></body></html>`;
+        html += `</tbody></table></body></html>`;
         win.document.write(html);
         win.document.close();
         win.print();
@@ -560,15 +560,17 @@
         document.getElementById('filterEnd').onchange = () => renderAll();
     }
 
-    // инициализация + демо если пусто
+    // инициализация — БЕЗ ДЕМО-ДАННЫХ, только загрузка из localStorage
     function init() {
         const loaded = loadFromLocalStorage();
-        if (!loaded || partiesData.length === 0) {
-            const today = getTodayDate();
-            partiesData = [
-                { id: 1001, player: "Стрельцов А.В.", scores: [20,20,20,20,40,60,80,20,20,80], total: 380, dateStr: today },
-                { id: 1002, player: "Ишимцев А.Г.", scores: [30,30,30,30,30,30,30,30,30,30], total: 300, dateStr: today }
-            ];
+        if (!loaded) {
+            // При первом запуске — пустая история, сессии пустые
+            partiesData = [];
+            currentSessions = {
+                "Стрельцов А.В.": [],
+                "Ишимцев А.Г.": [],
+                "Новоселов Е.В.": []
+            };
             saveToLocalStorage();
         }
         renderAll();
