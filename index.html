@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>Дартс таблица</title>
+    <title>Дартс | Живой ввод с отменой</title>
     <style>
         * {
             box-sizing: border-box;
@@ -41,14 +41,6 @@
             padding-bottom: 8px;
             margin-bottom: 16px;
         }
-        .debug {
-            background: #2c5e3a;
-            padding: 6px;
-            border-radius: 20px;
-            text-align: center;
-            font-size: 0.7rem;
-            margin-bottom: 12px;
-        }
         .online-panel {
             background: #0e2a1c;
             border-radius: 1.2rem;
@@ -74,9 +66,15 @@
             color: #ffefcf;
             cursor: pointer;
             touch-action: manipulation;
-            transition: 0.1s;
+            transition: all 0.1s ease;
         }
-        .player-live-btn:active { background: #f5b642; color: #1e3a2a; transform: scale(0.97); }
+        .player-live-btn:active { transform: scale(0.97); }
+        .player-live-btn.flash {
+            background: #4caf50;
+            border-color: #ffeb3b;
+            color: white;
+            transition: 0.05s;
+        }
         .score-input-group {
             display: flex;
             flex-wrap: wrap;
@@ -97,6 +95,21 @@
         .score-input-group select { flex: 2; min-width: 100px; }
         .score-input-group input { width: 90px; }
         .score-input-group button { flex: 1; background: #f5b642; padding: 12px; border: none; border-radius: 40px; font-weight: bold; cursor: pointer; color: #1e3a2a; }
+        .undo-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .undo-group button {
+            flex: 1;
+            background: #3a6b4e;
+            padding: 10px;
+            border: none;
+            border-radius: 40px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+        }
         .current-session {
             background: #0b2417;
             border-radius: 1rem;
@@ -109,10 +122,18 @@
         }
         .current-badge {
             background: #2c5e3a;
-            padding: 6px 12px;
+            padding: 8px 12px;
             border-radius: 40px;
-            font-size: 0.75rem;
+            font-size: 0.8rem;
             font-weight: bold;
+            transition: 0.1s;
+            min-width: 110px;
+            text-align: center;
+        }
+        .current-badge.highlight {
+            background: #4caf50;
+            color: #1e3a2a;
+            box-shadow: 0 0 8px #ffeb3b;
         }
         .reset-session {
             background: #6d4c3c;
@@ -192,6 +213,7 @@
             .player-card { flex: 1; }
             .record-box { flex-direction: row; }
             .reset-session { width: auto; }
+            .undo-group button { flex: 1; }
         }
     </style>
 </head>
@@ -220,7 +242,11 @@
             <input type="number" id="manualScore" placeholder="своё" value="" step="1" min="0" max="180">
             <button id="manualAddBtn">➕ Добавить</button>
         </div>
-        <button id="resetSessionBtn" class="reset-session">🔄 Сбросить сессию</button>
+
+        <div class="undo-group">
+            <button id="undoLastBtn" style="background:#e67e22;">↩️ Отмена последнего броска</button>
+            <button id="resetSessionBtn" class="reset-session" style="margin-top:0;">🔄 Сбросить сессию</button>
+        </div>
     </div>
 
     <div class="history-actions">
@@ -249,12 +275,12 @@
 
     <div id="ratingArea"></div>
     <div id="recordsArea" class="record-box"></div>
-    <div class="footer">✅ Все данные автосохраняются. Можно редактировать/удалять партии. Фильтр по датам.</div>
+    <div class="footer">✅ Последний бросок подсвечивается зелёным. Кнопка отмены удаляет последний бросок (у любого игрока).</div>
 </div>
 
 <script>
-    // ---------- ДАННЫЕ И KEY ----------
-    let partiesData = [];      // { id, player, scores, total, dateStr }
+    // ---------- ДАННЫЕ ----------
+    let partiesData = [];
     let currentSessions = {
         "Стрельцов А.В.": [],
         "Ишимцев А.Г.": [],
@@ -263,7 +289,10 @@
     const ALL_PLAYERS = ["Стрельцов А.В.", "Ишимцев А.Г.", "Новоселов Е.В."];
     const STORAGE_KEY = "darts_live_data";
 
-    // Загрузка / сохранение
+    // Для подсветки последнего броска
+    let lastThrowInfo = { player: null, timestamp: 0 };
+
+    // Сохранение / загрузка
     function saveToLocalStorage() {
         const toStore = { partiesData, currentSessions };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
@@ -284,7 +313,7 @@
 
     function getTodayDate() { return new Date().toISOString().slice(0,10); }
 
-    // Сохранить партию (10 бросков)
+    // Сохранить партию
     function saveParty(player, scoresArray) {
         if (scoresArray.length !== 10) return false;
         const total = scoresArray.reduce((s,v)=>s+v,0);
@@ -302,10 +331,21 @@
         return true;
     }
 
-    // Добавить бросок
+    // Добавить бросок с подсветкой
     function addThrow(player, points) {
         if (points < 0 || points > 180) { alert("Очки от 0 до 180"); return false; }
         currentSessions[player].push(points);
+        
+        // Запоминаем последний бросок для подсветки
+        lastThrowInfo = { player: player, timestamp: Date.now() };
+        
+        // Визуальная подсветка кнопки игрока
+        const btn = document.querySelector(`.player-live-btn[data-player="${player}"]`);
+        if (btn) {
+            btn.classList.add('flash');
+            setTimeout(() => btn.classList.remove('flash'), 300);
+        }
+        
         if (currentSessions[player].length === 10) {
             saveParty(player, [...currentSessions[player]]);
         } else {
@@ -313,6 +353,48 @@
             renderAll();
         }
         return true;
+    }
+
+    // ОТМЕНА ПОСЛЕДНЕГО БРОСКА (у любого игрока)
+    function undoLastThrow() {
+        // Ищем у кого из игроков есть броски
+        let lastPlayer = null;
+        
+        // Сначала проверяем по lastThrowInfo
+        if (lastThrowInfo.player && currentSessions[lastThrowInfo.player]?.length > 0) {
+            lastPlayer = lastThrowInfo.player;
+        } else {
+            // Ищем любого с бросками
+            for (let player of ALL_PLAYERS) {
+                if (currentSessions[player].length > 0) {
+                    lastPlayer = player;
+                    break;
+                }
+            }
+        }
+        
+        if (!lastPlayer) {
+            alert("Нет бросков для отмены");
+            return;
+        }
+        
+        const removed = currentSessions[lastPlayer].pop();
+        if (removed !== undefined) {
+            // Обновляем lastThrowInfo на предыдущий бросок (если есть)
+            if (currentSessions[lastPlayer].length > 0) {
+                lastThrowInfo = { player: lastPlayer, timestamp: Date.now() };
+            } else {
+                lastThrowInfo = { player: null, timestamp: 0 };
+            }
+            saveToLocalStorage();
+            renderAll();
+            // Визуальный фидбек
+            const undoBtn = document.getElementById('undoLastBtn');
+            undoBtn.style.background = '#f39c12';
+            setTimeout(() => undoBtn.style.background = '#e67e22', 200);
+        } else {
+            alert("Не удалось отменить бросок");
+        }
     }
 
     // Редактирование партии
@@ -336,6 +418,7 @@
     function resetCurrentSessions() {
         if (confirm("Сбросить все незавершённые броски?")) {
             for (let p of ALL_PLAYERS) currentSessions[p] = [];
+            lastThrowInfo = { player: null, timestamp: 0 };
             saveToLocalStorage();
             renderAll();
         }
@@ -407,7 +490,7 @@
             </tr>`;
         }
         tbody.innerHTML = rows;
-        // редактирование
+        
         document.querySelectorAll('.edit-btn').forEach(btn => {
             btn.onclick = () => {
                 const id = Number(btn.getAttribute('data-id'));
@@ -428,11 +511,20 @@
 
     function renderCurrentSession() {
         let html = '';
+        const now = Date.now();
         for (let player of ALL_PLAYERS) {
             const throws = currentSessions[player];
             const cnt = throws.length;
             const sum = throws.reduce((a,b)=>a+b,0);
-            html += `<div class="current-badge"><strong>${player.split(' ')[0]}</strong>: ${cnt}/10 | ${sum} очков</div>`;
+            // Подсветка, если последний бросок был у этого игрока и прошло меньше 2 секунд
+            const isHighlight = (lastThrowInfo.player === player && (now - lastThrowInfo.timestamp) < 2000);
+            const highlightClass = isHighlight ? 'highlight' : '';
+            
+            html += `<div class="current-badge ${highlightClass}">
+                        <strong>${player.split(' ')[0]}</strong><br>
+                        <span style="font-size:0.9rem;">${cnt}/10 бросков</span><br>
+                        <span style="font-size:0.85rem; color:#ffd966;">${sum} очков</span>
+                     </div>`;
         }
         document.getElementById('currentSessionDisplay').innerHTML = html || '<span>Нет бросков</span>';
     }
@@ -473,7 +565,7 @@
         renderRecords(stats);
     }
 
-    // ---------- ЭКСПОРТ / ИМПОРТ ----------
+    // ---------- ЭКСПОРТ / ИМПОРТ / ПЕЧАТЬ ----------
     function exportData() {
         const exportObj = { partiesData, currentSessions, version: "1.0", exportDate: new Date().toISOString() };
         const dataStr = JSON.stringify(exportObj, null, 2);
@@ -505,13 +597,12 @@
         reader.readAsText(file);
     }
 
-    // Печать
     function printReport() {
         const win = window.open('', '_blank');
         const stats = computeStats();
-        let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Дартс отчёт</title><style>body{font-family:sans-serif;margin:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px}</style></head><body><h1>Отчёт по дартсу</h1><p>${new Date().toLocaleString()}</p><h2>Статистика</h2><table><thead><tr><th>Игрок</th><th>Партий</th><th>Сумма</th><th>Рекорд</th></tr></thead><tbody>`;
+        let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Дартс отчёт</title><style>body{font-family:sans-serif;margin:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px}</style></head><body><h1>Отчёт по дартсу</h1><p>${new Date().toLocaleString()}</p><h2>Статистика</h2><tr><thead><tr><th>Игрок</th><th>Партий</th><th>Сумма</th><th>Рекорд</th></tr></thead><tbody>`;
         for (let [p,d] of stats.entries()) { html += `<tr><td>${p}</td><td>${d.parties}</td><td>${d.totalPoints}</td><td>${d.bestParty}</td></tr>`; }
-        html += `</tbody></table><h2>История</h2><table><thead><tr><th>Дата</th><th>Игрок</th><th>Очки</th><th>Сумма</th></tr></thead><tbody>`;
+        html += `</tbody></table><h2>История</h2><td><thead><tr><th>Дата</th><th>Игрок</th><th>Очки</th><th>Сумма</th></tr></thead><tbody>`;
         partiesData.forEach(p => { html += `<tr><td>${p.dateStr}</td><td>${p.player}</td><td>${p.scores.join(', ')}</td><td>${p.total}</td></tr>`; });
         html += `</tbody></table></body></html>`;
         win.document.write(html);
@@ -545,6 +636,7 @@
             else alert("Игрок не распознан. Используйте кнопки.");
         };
 
+        document.getElementById('undoLastBtn').onclick = undoLastThrow;
         document.getElementById('resetSessionBtn').onclick = resetCurrentSessions;
         document.getElementById('resetAllBtn').onclick = resetAllHistory;
         document.getElementById('printBtn').onclick = printReport;
@@ -560,11 +652,10 @@
         document.getElementById('filterEnd').onchange = () => renderAll();
     }
 
-    // инициализация — БЕЗ ДЕМО-ДАННЫХ, только загрузка из localStorage
+    // Инициализация
     function init() {
         const loaded = loadFromLocalStorage();
         if (!loaded) {
-            // При первом запуске — пустая история, сессии пустые
             partiesData = [];
             currentSessions = {
                 "Стрельцов А.В.": [],
