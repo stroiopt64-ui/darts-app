@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>Дартс | Живой ввод бросков | Адаптив</title>
+    <title>Дартс таблица</title>
     <style>
         * {
             box-sizing: border-box;
@@ -13,16 +13,16 @@
             background: #1a472a;
             margin: 0;
             padding: 12px;
-            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, system-ui, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             color: #f0f3e8;
         }
         .container {
-            max-width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
             background: rgba(10, 25, 15, 0.95);
             border-radius: 1.5rem;
             padding: 1rem;
             border: 1px solid #d4af37;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
         }
         h1 {
             text-align: center;
@@ -41,7 +41,14 @@
             padding-bottom: 8px;
             margin-bottom: 16px;
         }
-        /* онлайн панель */
+        .debug {
+            background: #2c5e3a;
+            padding: 6px;
+            border-radius: 20px;
+            text-align: center;
+            font-size: 0.7rem;
+            margin-bottom: 12px;
+        }
         .online-panel {
             background: #0e2a1c;
             border-radius: 1.2rem;
@@ -59,21 +66,17 @@
             background: #1d3b28;
             border: 2px solid #f5b642;
             border-radius: 60px;
-            padding: 12px 16px;
+            padding: 14px 16px;
             font-size: 1rem;
             font-weight: bold;
-            cursor: pointer;
-            transition: 0.2s;
             width: 100%;
             text-align: center;
             color: #ffefcf;
+            cursor: pointer;
             touch-action: manipulation;
+            transition: 0.1s;
         }
-        .player-live-btn:active {
-            background: #f5b642;
-            color: #1e3a2a;
-            transform: scale(0.98);
-        }
+        .player-live-btn:active { background: #f5b642; color: #1e3a2a; transform: scale(0.97); }
         .score-input-group {
             display: flex;
             flex-wrap: wrap;
@@ -82,22 +85,18 @@
             justify-content: space-between;
             margin-top: 12px;
         }
-        .score-input-group input {
+        .score-input-group select, .score-input-group input {
             background: #1d3522;
             border: 1px solid #d4af37;
             padding: 12px;
             border-radius: 40px;
-            font-size: 1.1rem;
-            width: 100px;
+            font-size: 1rem;
             text-align: center;
             color: #ffefcf;
         }
-        .score-input-group button {
-            flex: 1;
-            background: #f5b642;
-            padding: 12px;
-            font-size: 0.9rem;
-        }
+        .score-input-group select { flex: 2; min-width: 100px; }
+        .score-input-group input { width: 90px; }
+        .score-input-group button { flex: 1; background: #f5b642; padding: 12px; border: none; border-radius: 40px; font-weight: bold; cursor: pointer; color: #1e3a2a; }
         .current-session {
             background: #0b2417;
             border-radius: 1rem;
@@ -114,13 +113,17 @@
             border-radius: 40px;
             font-size: 0.75rem;
             font-weight: bold;
-            white-space: nowrap;
         }
         .reset-session {
             background: #6d4c3c;
             width: 100%;
             padding: 10px;
             font-size: 0.9rem;
+            border: none;
+            border-radius: 40px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
             margin-top: 8px;
         }
         .history-actions {
@@ -135,6 +138,27 @@
             font-size: 0.75rem;
             background: #4a5b3e;
             color: #ffecb3;
+            border: none;
+            border-radius: 40px;
+            cursor: pointer;
+        }
+        .filter-area {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            background: #0b2a18;
+            padding: 8px;
+            border-radius: 2rem;
+            margin: 10px 0;
+            align-items: center;
+            justify-content: center;
+        }
+        .filter-area input, .filter-area button {
+            padding: 6px 12px;
+            border-radius: 30px;
+            border: none;
+            background: #1d3522;
+            color: #ffefcf;
         }
         .stats-cards {
             display: flex;
@@ -148,228 +172,184 @@
             padding: 0.8rem;
             border-left: 6px solid #f5b642;
         }
-        .player-name {
-            font-size: 1.2rem;
-            font-weight: bold;
-            margin-bottom: 6px;
-        }
-        .stat {
-            font-size: 0.8rem;
-            margin: 4px 0;
-            display: flex;
-            justify-content: space-between;
-        }
-        .stat-value {
-            font-weight: 800;
-            font-size: 1.1rem;
-            color: #ffd966;
-        }
-        .table-wrapper {
-            overflow-x: auto;
-            margin: 16px 0;
-            border-radius: 1rem;
-            background: #0b2417;
-        }
-        table {
-            width: 100%;
-            min-width: 500px;
-            border-collapse: collapse;
-            font-size: 0.7rem;
-        }
-        th, td {
-            padding: 8px 4px;
-            text-align: center;
-            border-bottom: 1px solid #2e6a3e;
-        }
-        th {
-            background: #1c462c;
-            color: #fad974;
-        }
-        .delete-btn {
-            background: #a13a2c;
-            border: none;
-            border-radius: 30px;
-            padding: 6px 12px;
-            color: white;
-            font-size: 0.7rem;
-            cursor: pointer;
-        }
-        .record-box {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            margin-top: 16px;
-        }
-        .record-item {
-            background: #1a3b26;
-            border-radius: 1rem;
-            padding: 8px;
-            text-align: center;
-        }
-        .record-number {
-            font-size: 1.4rem;
-            font-weight: bold;
-            color: #f3bc5c;
-        }
-        .footer {
-            text-align: center;
-            font-size: 0.6rem;
-            margin-top: 16px;
-            color: #aacf9e;
-        }
-        .info-note {
-            background: #1f3f2a;
-            border-radius: 1rem;
-            padding: 6px 12px;
-            margin: 10px 0;
-            font-size: 0.7rem;
-        }
-        button {
-            touch-action: manipulation;
-            cursor: pointer;
-            border: none;
-            border-radius: 40px;
-            font-weight: bold;
-            transition: 0.1s;
-        }
-        button:active {
-            transform: scale(0.97);
-        }
-        @media (min-width: 600px) {
-            body { padding: 20px; }
-            .container { max-width: 1000px; margin: 0 auto; padding: 1.5rem; }
-            .live-buttons { flex-direction: row; justify-content: center; }
-            .player-live-btn { width: auto; min-width: 140px; }
+        .player-name { font-size: 1.2rem; font-weight: bold; margin-bottom: 6px; }
+        .stat { font-size: 0.8rem; margin: 4px 0; display: flex; justify-content: space-between; }
+        .stat-value { font-weight: 800; font-size: 1.1rem; color: #ffd966; }
+        .table-wrapper { overflow-x: auto; margin: 16px 0; border-radius: 1rem; background: #0b2417; }
+        table { width: 100%; min-width: 550px; border-collapse: collapse; font-size: 0.7rem; }
+        th, td { padding: 8px 4px; text-align: center; border-bottom: 1px solid #2e6a3e; }
+        th { background: #1c462c; color: #fad974; }
+        .edit-btn, .delete-btn { background: #3a6b4e; border: none; border-radius: 20px; padding: 4px 8px; margin: 0 2px; color: white; cursor: pointer; font-size: 0.65rem; }
+        .delete-btn { background: #a13a2c; }
+        .record-box { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+        .record-item { background: #1a3b26; border-radius: 1rem; padding: 8px; text-align: center; }
+        .record-number { font-size: 1.4rem; font-weight: bold; color: #f3bc5c; }
+        .footer { text-align: center; font-size: 0.6rem; margin-top: 16px; color: #aacf9e; }
+        @media (min-width: 550px) {
+            .live-buttons { flex-direction: row; }
+            .player-live-btn { width: auto; flex: 1; }
             .stats-cards { flex-direction: row; flex-wrap: wrap; }
-            .player-card { flex: 1; min-width: 180px; }
+            .player-card { flex: 1; }
             .record-box { flex-direction: row; }
-            .score-input-group { justify-content: center; }
-            .reset-session { width: auto; margin-top: 0; }
-            .history-actions button { flex: none; padding: 8px 16px; }
+            .reset-session { width: auto; }
         }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>🎯 ДАРТС | ЖИВОЙ ВВОД</h1>
-    <div class="sub">Бросок → автоматическая партия (10 бросков)</div>
+    <h1>🎯 ДАРТС</h1>
+    <div class="sub"></div>
 
-    <!-- Онлайн панель -->
     <div class="online-panel">
-        <div style="text-align:center; font-weight:bold; font-size:0.85rem;">⚡ ТЕКУЩАЯ СЕССИЯ</div>
-        <div id="currentSessionDisplay" class="current-session">
-            <span style="color:#ffda88; font-size:0.7rem;">Нет активных бросков</span>
+        <div style="text-align:center; font-weight:bold;">⚡ ТЕКУЩАЯ СЕССИЯ</div>
+        <div id="currentSessionDisplay" class="current-session"><span>Нет бросков</span></div>
+
+        <div class="live-buttons" id="liveButtons">
+            <button class="player-live-btn" data-player="Стрельцов А.В.">🎯 Стрельцов А.В.</button>
+            <button class="player-live-btn" data-player="Ишимцев А.Г.">🎯 Ишимцев А.Г.</button>
+            <button class="player-live-btn" data-player="Новоселов Е.В.">🎯 Новоселов Е.В.</button>
         </div>
-        <div class="live-buttons" id="liveButtons"></div>
-        
+
         <div class="score-input-group">
-            <span style="font-size:0.8rem;">🎯 Очки:</span>
-            <input type="number" id="manualScore" value="20" step="1" min="0" max="180">
-            <button id="manualAddBtn" style="background:#f5b642;">➕ Добавить выбранному</button>
+            <select id="scoreSelect">
+                <option value="20">20</option><option value="40">40</option><option value="60">60</option>
+                <option value="80">80</option><option value="100">100</option><option value="120">120</option>
+                <option value="140">140</option><option value="160">160</option><option value="180">180</option>
+                <option value="0">0</option>
+            </select>
+            <input type="number" id="manualScore" placeholder="своё" value="" step="1" min="0" max="180">
+            <button id="manualAddBtn">➕ Добавить</button>
         </div>
-        <button id="resetSessionBtn" class="reset-session" style="background:#6d4c3c;">🔄 Сбросить текущую сессию</button>
+        <button id="resetSessionBtn" class="reset-session">🔄 Сбросить сессию</button>
     </div>
 
-    <!-- Кнопки управления -->
     <div class="history-actions">
-        <input type="file" id="importFileInput" accept=".csv,.json,.txt" style="display:none;">
-        <button id="importBtn">📂 Импорт</button>
-        <button id="printBtn">🖨️ Печать</button>
-        <button id="emailBtn">📧 Отчёт</button>
+        <button id="exportBtn">📤 Экспорт JSON</button>
+        <input type="file" id="importFileInput" accept=".json" style="display:none;">
+        <button id="importBtn">📥 Импорт JSON</button>
         <button id="resetAllBtn" style="background:#6d4c3c;">🗑️ Сброс истории</button>
+        <button id="printBtn">🖨️ Печать</button>
     </div>
 
-    <!-- Карточки статистики -->
+    <div class="filter-area">
+        <span>📅 Фильтр по дате:</span>
+        <input type="date" id="filterStart">
+        <input type="date" id="filterEnd">
+        <button id="clearFilterBtn">Сбросить</button>
+    </div>
+
     <div id="statsCards" class="stats-cards"></div>
 
-    <!-- Таблица партий -->
     <div class="table-wrapper">
         <table>
-            <thead><tr><th>Дата</th><th>Игрок</th><th>Очки партии (10)</th><th>Сумма</th><th></th></tr></thead>
-            <tbody id="tableBody"><tr><td colspan="5" style="text-align:center;">Нет партий. Добавьте броски!</td></tr></tbody>
+            <thead><tr><th>Дата</th><th>Игрок</th><th>Очки партии (10)</th><th>Сумма</th><th>Действия</th></tr></thead>
+            <tbody id="tableBody"><tr><td colspan="5">Нет партий. Нажмите на игрока!</td></tr></tbody>
         </table>
     </div>
 
     <div id="ratingArea"></div>
     <div id="recordsArea" class="record-box"></div>
-    <div class="footer">✅ Каждый бросок добавляется игроку. После 10 бросков → партия сохраняется автоматически.</div>
+    <div class="footer">✅ Все данные автосохраняются. Можно редактировать/удалять партии. Фильтр по датам.</div>
 </div>
 
 <script>
-    // ---------- ДАННЫЕ ----------
-    let partiesData = [];          // сохранённые партии { id, player, scores[], total, dateStr }
+    // ---------- ДАННЫЕ И KEY ----------
+    let partiesData = [];      // { id, player, scores, total, dateStr }
     let currentSessions = {
         "Стрельцов А.В.": [],
         "Ишимцев А.Г.": [],
         "Новоселов Е.В.": []
     };
     const ALL_PLAYERS = ["Стрельцов А.В.", "Ишимцев А.Г.", "Новоселов Е.В."];
+    const STORAGE_KEY = "darts_live_data";
 
-    // DOM
-    const liveButtonsDiv = document.getElementById('liveButtons');
-    const sessionDisplay = document.getElementById('currentSessionDisplay');
-    const manualScoreInput = document.getElementById('manualScore');
-    const manualAddBtn = document.getElementById('manualAddBtn');
-    const resetSessionBtn = document.getElementById('resetSessionBtn');
-    const importBtn = document.getElementById('importBtn');
-    const importFileInput = document.getElementById('importFileInput');
-    const printBtn = document.getElementById('printBtn');
-    const emailBtn = document.getElementById('emailBtn');
-    const resetAllBtn = document.getElementById('resetAllBtn');
-    const tableBody = document.getElementById('tableBody');
-    const statsCardsDiv = document.getElementById('statsCards');
-    const ratingArea = document.getElementById('ratingArea');
-    const recordsArea = document.getElementById('recordsArea');
-
-    // helpers
-    function getTodayDate() {
-        return new Date().toISOString().slice(0,10);
+    // Загрузка / сохранение
+    function saveToLocalStorage() {
+        const toStore = { partiesData, currentSessions };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
     }
 
-    // сохранить партию (10 бросков)
+    function loadFromLocalStorage() {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return false;
+        try {
+            const data = JSON.parse(raw);
+            partiesData = data.partiesData || [];
+            currentSessions = data.currentSessions || {
+                "Стрельцов А.В.": [], "Ишимцев А.Г.": [], "Новоселов Е.В.": []
+            };
+            return true;
+        } catch(e) { return false; }
+    }
+
+    function getTodayDate() { return new Date().toISOString().slice(0,10); }
+
+    // Сохранить партию (10 бросков)
     function saveParty(player, scoresArray) {
         if (scoresArray.length !== 10) return false;
-        const total = scoresArray.reduce((s,v) => s+v, 0);
-        partiesData.push({
-            id: Date.now() + Math.random(),
+        const total = scoresArray.reduce((s,v)=>s+v,0);
+        const newParty = {
+            id: Date.now(),
             player: player,
             scores: [...scoresArray],
             total: total,
             dateStr: getTodayDate()
-        });
+        };
+        partiesData.push(newParty);
         currentSessions[player] = [];
+        saveToLocalStorage();
         renderAll();
         return true;
     }
 
-    // добавить бросок
+    // Добавить бросок
     function addThrow(player, points) {
-        if (points < 0 || points > 180) {
-            alert("Очки от 0 до 180");
-            return false;
+        if (points < 0 || points > 180) { alert("Очки от 0 до 180"); return false; }
+        currentSessions[player].push(points);
+        if (currentSessions[player].length === 10) {
+            saveParty(player, [...currentSessions[player]]);
+        } else {
+            saveToLocalStorage();
+            renderAll();
         }
-        const session = currentSessions[player];
-        session.push(points);
-        if (session.length === 10) {
-            saveParty(player, [...session]);
-        }
-        renderAll();
         return true;
+    }
+
+    // Редактирование партии
+    function editParty(id, newScores) {
+        const index = partiesData.findIndex(p => p.id === id);
+        if (index === -1) return;
+        if (newScores.length !== 10) { alert("Нужно ровно 10 чисел"); return; }
+        const total = newScores.reduce((a,b)=>a+b,0);
+        partiesData[index].scores = [...newScores];
+        partiesData[index].total = total;
+        saveToLocalStorage();
+        renderAll();
+    }
+
+    function deletePartyById(id) {
+        partiesData = partiesData.filter(p => p.id !== id);
+        saveToLocalStorage();
+        renderAll();
     }
 
     function resetCurrentSessions() {
         if (confirm("Сбросить все незавершённые броски?")) {
             for (let p of ALL_PLAYERS) currentSessions[p] = [];
+            saveToLocalStorage();
             renderAll();
         }
     }
 
-    function deletePartyById(id) {
-        partiesData = partiesData.filter(p => p.id !== id);
-        renderAll();
+    function resetAllHistory() {
+        if (confirm("Удалить ВСЕ сохранённые партии? Сессии останутся.")) {
+            partiesData = [];
+            saveToLocalStorage();
+            renderAll();
+        }
     }
 
-    // статистика
+    // Статистика
     function computeStats() {
         const map = new Map();
         for (let p of ALL_PLAYERS) map.set(p, { parties: 0, totalPoints: 0, bestParty: 0 });
@@ -382,46 +362,67 @@
         return map;
     }
 
-    // отрисовка всего
+    // Фильтр по датам
+    function getFilteredParties() {
+        const start = document.getElementById('filterStart').value;
+        const end = document.getElementById('filterEnd').value;
+        if (!start && !end) return [...partiesData];
+        return partiesData.filter(p => {
+            if (start && p.dateStr < start) return false;
+            if (end && p.dateStr > end) return false;
+            return true;
+        });
+    }
+
+    // ---------- ОТРИСОВКА ----------
     function renderStatsCards(statsMap) {
         let html = '';
         for (let [player, data] of statsMap.entries()) {
-            html += `
-                <div class="player-card">
-                    <div class="player-name">🎯 ${player}</div>
-                    <div class="stat"><span>📌 Партий:</span><span class="stat-value">${data.parties}</span></div>
-                    <div class="stat"><span>🏆 Сумма:</span><span class="stat-value">${data.totalPoints}</span></div>
-                    <div class="stat"><span>⚡ Рекорд партии:</span><span class="stat-value">${data.bestParty}</span></div>
-                </div>
-            `;
+            html += `<div class="player-card">
+                <div class="player-name">🎯 ${player}</div>
+                <div class="stat"><span>📌 Партий:</span><span class="stat-value">${data.parties}</span></div>
+                <div class="stat"><span>🏆 Сумма:</span><span class="stat-value">${data.totalPoints}</span></div>
+                <div class="stat"><span>⚡ Рекорд:</span><span class="stat-value">${data.bestParty}</span></div>
+            </div>`;
         }
-        statsCardsDiv.innerHTML = html;
+        document.getElementById('statsCards').innerHTML = html;
     }
 
     function renderHistory() {
-        if (partiesData.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Нет завершённых партий. Добавьте броски!</td></tr>';
+        const filtered = getFilteredParties();
+        const tbody = document.getElementById('tableBody');
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5">Нет партий за выбранный период. Добавьте броски!</td></tr>';
             return;
         }
-        const sorted = [...partiesData].sort((a,b) => (b.dateStr||'').localeCompare(a.dateStr||''));
+        const sorted = [...filtered].sort((a,b)=> (b.dateStr||'').localeCompare(a.dateStr||''));
         let rows = '';
         for (let p of sorted) {
-            rows += `
-                <tr>
-                    <td style="white-space:nowrap;">${p.dateStr}</td>
-                    <td>${p.player}</td>
-                    <td style="max-width:200px; overflow-x:auto; white-space:nowrap;">${p.scores.join(', ')}</td>
-                    <td style="color:#ffda88; font-weight:bold;">${p.total}</td>
-                    <td><button class="delete-btn" data-id="${p.id}">✖</button></td>
-                </tr>
-            `;
+            rows += `<tr>
+                <td>${p.dateStr}</td>
+                <td>${p.player}</td>
+                <td style="max-width:250px; overflow-x:auto;">${p.scores.join(', ')}</td>
+                <td style="color:#ffda88;">${p.total}</td>
+                <td><button class="edit-btn" data-id="${p.id}">✏️</button><button class="delete-btn" data-id="${p.id}">✖</button></td>
+            </tr>`;
         }
-        tableBody.innerHTML = rows;
-        document.querySelectorAll('.delete-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+        tbody.innerHTML = rows;
+        // редактирование
+        document.querySelectorAll('.edit-btn').forEach(btn => {
+            btn.onclick = () => {
                 const id = Number(btn.getAttribute('data-id'));
-                if (!isNaN(id)) deletePartyById(id);
-            });
+                const party = partiesData.find(p => p.id === id);
+                if (!party) return;
+                const newScoresStr = prompt("Введите 10 чисел через пробел", party.scores.join(" "));
+                if (newScoresStr) {
+                    const nums = newScoresStr.trim().split(/\s+/).map(Number).filter(n=>!isNaN(n) && n>=0 && n<=180);
+                    if (nums.length === 10) editParty(id, nums);
+                    else alert("Нужно ровно 10 чисел от 0 до 180");
+                }
+            };
+        });
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.onclick = () => { const id = Number(btn.getAttribute('data-id')); deletePartyById(id); };
         });
     }
 
@@ -433,42 +434,20 @@
             const sum = throws.reduce((a,b)=>a+b,0);
             html += `<div class="current-badge"><strong>${player.split(' ')[0]}</strong>: ${cnt}/10 | ${sum} очков</div>`;
         }
-        if (html === '') html = '<span>Нет бросков</span>';
-        sessionDisplay.innerHTML = html;
-    }
-
-    function renderLiveButtons() {
-        let btns = '';
-        for (let player of ALL_PLAYERS) {
-            btns += `<button class="player-live-btn" data-player="${player}">🎯 ${player}<br><span style="font-size:0.65rem;">добавить бросок</span></button>`;
-        }
-        liveButtonsDiv.innerHTML = btns;
-        document.querySelectorAll('.player-live-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const player = btn.getAttribute('data-player');
-                let points = 20;
-                const manualVal = parseInt(manualScoreInput.value, 10);
-                if (!isNaN(manualVal) && manualVal>=0 && manualVal<=180) points = manualVal;
-                addThrow(player, points);
-            });
-        });
+        document.getElementById('currentSessionDisplay').innerHTML = html || '<span>Нет бросков</span>';
     }
 
     function renderRating(statsMap) {
-        const sorted = Array.from(statsMap.entries())
-            .filter(([_,d]) => d.parties > 0)
-            .sort((a,b) => b[1].totalPoints - a[1].totalPoints);
-        if (sorted.length === 0) {
-            ratingArea.innerHTML = `<h3 style="font-size:1.1rem;">🏅 РЕЙТИНГ</h3><p style="background:#0b2417; padding:8px; border-radius:1rem;">Нет данных</p>`;
-            return;
-        }
-        let html = `<h3 style="font-size:1.1rem; margin:10px 0 5px;">🏅 РЕЙТИНГ</h3><div class="table-wrapper"><table style="min-width:300px;"><thead><tr><th>#</th><th>Игрок</th><th>Партий</th><th>Сумма</th><th>Среднее</th></tr></thead><tbody>`;
+        const sorted = Array.from(statsMap.entries()).filter(([_,d])=>d.parties>0).sort((a,b)=>b[1].totalPoints - a[1].totalPoints);
+        const ratingDiv = document.getElementById('ratingArea');
+        if (sorted.length === 0) { ratingDiv.innerHTML = '<h3>🏅 РЕЙТИНГ</h3><p>Нет данных</p>'; return; }
+        let html = '<h3>🏅 РЕЙТИНГ</h3><div class="table-wrapper"><table><thead><tr><th>#</th><th>Игрок</th><th>Партий</th><th>Сумма</th><th>Среднее</th></tr></thead><tbody>';
         sorted.forEach(([player, data], idx) => {
             const avg = data.parties ? (data.totalPoints / data.parties).toFixed(1) : 0;
             html += `<tr><td>${idx+1}</td><td><strong>${player}</strong></td><td>${data.parties}</td><td>${data.totalPoints}</td><td>${avg}</td></tr>`;
         });
         html += `</tbody></table></div>`;
-        ratingArea.innerHTML = html;
+        ratingDiv.innerHTML = html;
     }
 
     function renderRecords(statsMap) {
@@ -478,9 +457,9 @@
             if (data.bestParty > globalBest) { globalBest = data.bestParty; bestPlayer = player; }
             if (data.totalPoints > totalLeader.points) { totalLeader = { name: player, points: data.totalPoints }; }
         }
-        recordsArea.innerHTML = `
-            <div class="record-item"><div>🏆 МАКСИМУМ ЗА ПАРТИЮ</div><div class="record-number">${globalBest}</div><div style="font-size:0.7rem;">${bestPlayer || '—'}</div></div>
-            <div class="record-item"><div>💎 ЛИДЕР ПО СУММЕ</div><div class="record-number">${totalLeader.points}</div><div style="font-size:0.7rem;">${totalLeader.name || '—'}</div></div>
+        document.getElementById('recordsArea').innerHTML = `
+            <div class="record-item"><div>🏆 МАКСИМУМ ЗА ПАРТИЮ</div><div class="record-number">${globalBest}</div><div>${bestPlayer || '—'}</div></div>
+            <div class="record-item"><div>💎 ЛИДЕР ПО СУММЕ</div><div class="record-number">${totalLeader.points}</div><div>${totalLeader.name || '—'}</div></div>
             <div class="record-item"><div>🎲 ВСЕГО ПАРТИЙ</div><div class="record-number">${partiesData.length}</div></div>
         `;
     }
@@ -490,123 +469,112 @@
         renderStatsCards(stats);
         renderHistory();
         renderCurrentSession();
-        renderLiveButtons();
         renderRating(stats);
         renderRecords(stats);
     }
 
-    // импорт файлов (CSV/JSON)
-    function parseImportedData(text, filename) {
-        const lines = text.split(/\r?\n/).filter(l=>l.trim());
-        const newParties = [];
-        const isJson = filename.toLowerCase().endsWith('.json');
-        if (isJson) {
-            try {
-                const arr = JSON.parse(text);
-                if (Array.isArray(arr)) {
-                    for (let item of arr) {
-                        if (item.player && item.scores && Array.isArray(item.scores) && item.scores.length===10 && item.dateStr && ALL_PLAYERS.includes(item.player)) {
-                            const total = item.scores.reduce((a,b)=>a+b,0);
-                            newParties.push({ id: Date.now()+Math.random(), player: item.player, scores: item.scores, total, dateStr: item.dateStr });
-                        }
-                    }
-                }
-            } catch(e) { alert("Ошибка JSON"); return []; }
-            return newParties;
-        }
-        for (let line of lines) {
-            let player="", dateStr="", scoresStr="";
-            if (line.includes('|')) {
-                const parts = line.split('|');
-                if (parts.length>=3) { player=parts[0].trim(); dateStr=parts[1].trim(); scoresStr=parts[2].trim(); }
-            } else if (line.includes(',')) {
-                const parts = line.split(',');
-                if (parts.length>=3) { player=parts[0].trim(); dateStr=parts[1].trim(); scoresStr=parts.slice(2).join(',').trim(); }
-            } else continue;
-            const numbers = scoresStr.split(/\s+/).map(Number).filter(n=>!isNaN(n) && n>=0 && n<=180);
-            if (numbers.length===10 && player && dateStr && ALL_PLAYERS.includes(player)) {
-                const total = numbers.reduce((a,b)=>a+b,0);
-                newParties.push({ id: Date.now()+Math.random(), player, scores: numbers, total, dateStr });
-            }
-        }
-        return newParties;
+    // ---------- ЭКСПОРТ / ИМПОРТ ----------
+    function exportData() {
+        const exportObj = { partiesData, currentSessions, version: "1.0", exportDate: new Date().toISOString() };
+        const dataStr = JSON.stringify(exportObj, null, 2);
+        const blob = new Blob([dataStr], {type: "application/json"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `darts_backup_${getTodayDate()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
     }
 
-    function importFile() {
-        const file = importFileInput.files[0];
-        if (!file) { alert("Выберите файл"); return; }
+    function importData(file) {
         const reader = new FileReader();
         reader.onload = (e) => {
-            const content = e.target.result;
-            const newParties = parseImportedData(content, file.name);
-            if (newParties.length===0) { alert("Не найдено корректных партий. Формат: игрок,дата,10 чисел через пробел (разделитель | или ,)"); return; }
-            partiesData.push(...newParties);
-            alert(`Добавлено ${newParties.length} партий`);
-            renderAll();
-            importFileInput.value = '';
+            try {
+                const imported = JSON.parse(e.target.result);
+                if (imported.partiesData && Array.isArray(imported.partiesData)) {
+                    partiesData = imported.partiesData;
+                    currentSessions = imported.currentSessions || {
+                        "Стрельцов А.В.": [], "Ишимцев А.Г.": [], "Новоселов Е.В.": []
+                    };
+                    saveToLocalStorage();
+                    renderAll();
+                    alert("Импорт успешен!");
+                } else { alert("Неверный формат файла"); }
+            } catch(err) { alert("Ошибка разбора JSON"); }
         };
-        reader.readAsText(file, 'UTF-8');
+        reader.readAsText(file);
     }
 
-    function resetAllHistory() {
-        if (confirm("Удалить ВСЕ сохранённые партии? Текущие броски останутся.")) {
-            partiesData = [];
-            renderAll();
-        }
-    }
-
+    // Печать
     function printReport() {
         const win = window.open('', '_blank');
         const stats = computeStats();
         let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Дартс отчёт</title><style>body{font-family:sans-serif;margin:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px}</style></head><body><h1>Отчёт по дартсу</h1><p>${new Date().toLocaleString()}</p><h2>Статистика</h2><table><tr><th>Игрок</th><th>Партий</th><th>Сумма</th><th>Рекорд</th></tr>`;
-        for (let [p,d] of stats.entries()) {
-            html += `<tr><td>${p}</td><td>${d.parties}</td><td>${d.totalPoints}</td><td>${d.bestParty}</td></tr>`;
-        }
-        html += `</table><h2>Партии</h2><table><tr><th>Дата</th><th>Игрок</th><th>Очки</th><th>Сумма</th></tr>`;
-        partiesData.forEach(p => {
-            html += `<tr><td>${p.dateStr}</td><td>${p.player}</td><td>${p.scores.join(', ')}</td><td>${p.total}</td></tr>`;
-        });
+        for (let [p,d] of stats.entries()) { html += `<tr><td>${p}</td><td>${d.parties}</td><td>${d.totalPoints}</td><td>${d.bestParty}</td></tr>`; }
+        html += `</table><h2>История</h2><table><tr><th>Дата</th><th>Игрок</th><th>Очки</th><th>Сумма</th></tr>`;
+        partiesData.forEach(p => { html += `<tr><td>${p.dateStr}</td><td>${p.player}</td><td>${p.scores.join(', ')}</td><td>${p.total}</td></tr>`; });
         html += `</table></body></html>`;
         win.document.write(html);
         win.document.close();
         win.print();
     }
 
-    function sendEmail() {
-        const stats = computeStats();
-        let body = "ОТЧЁТ ПО ДАРТСУ\n\n";
-        for (let [p,d] of stats.entries()) {
-            body += `${p}: партий ${d.parties}, сумма ${d.totalPoints}, рекорд ${d.bestParty}\n`;
-        }
-        body += `\nВсего партий: ${partiesData.length}\n`;
-        window.location.href = `mailto:?subject=Дартс статистика&body=${encodeURIComponent(body)}`;
+    // ---------- ОБРАБОТЧИКИ ----------
+    function setupEventListeners() {
+        document.querySelectorAll('.player-live-btn').forEach(btn => {
+            btn.onclick = () => {
+                const player = btn.getAttribute('data-player');
+                let points = 20;
+                const selectVal = parseInt(document.getElementById('scoreSelect').value, 10);
+                const manualVal = parseInt(document.getElementById('manualScore').value, 10);
+                if (!isNaN(manualVal) && manualVal >=0 && manualVal<=180) points = manualVal;
+                else if (!isNaN(selectVal)) points = selectVal;
+                addThrow(player, points);
+            };
+        });
+
+        document.getElementById('manualAddBtn').onclick = () => {
+            let points = parseInt(document.getElementById('manualScore').value, 10);
+            if (isNaN(points)) points = parseInt(document.getElementById('scoreSelect').value, 10);
+            if (isNaN(points) || points<0 || points>180) { alert("Выберите очки"); return; }
+            const answer = prompt("Кто бросает? (1-Стрельцов, 2-Ишимцев, 3-Новоселов)", "1");
+            if (answer === "1") addThrow("Стрельцов А.В.", points);
+            else if (answer === "2") addThrow("Ишимцев А.Г.", points);
+            else if (answer === "3") addThrow("Новоселов Е.В.", points);
+            else if (answer && ALL_PLAYERS.includes(answer)) addThrow(answer, points);
+            else alert("Игрок не распознан. Используйте кнопки.");
+        };
+
+        document.getElementById('resetSessionBtn').onclick = resetCurrentSessions;
+        document.getElementById('resetAllBtn').onclick = resetAllHistory;
+        document.getElementById('printBtn').onclick = printReport;
+        document.getElementById('exportBtn').onclick = exportData;
+        document.getElementById('importBtn').onclick = () => document.getElementById('importFileInput').click();
+        document.getElementById('importFileInput').onchange = (e) => { if(e.target.files[0]) importData(e.target.files[0]); e.target.value=''; };
+        document.getElementById('clearFilterBtn').onclick = () => {
+            document.getElementById('filterStart').value = '';
+            document.getElementById('filterEnd').value = '';
+            renderAll();
+        };
+        document.getElementById('filterStart').onchange = () => renderAll();
+        document.getElementById('filterEnd').onchange = () => renderAll();
     }
 
-    // демо
-    function addDemo() {
-        if (partiesData.length === 0) {
+    // инициализация + демо если пусто
+    function init() {
+        const loaded = loadFromLocalStorage();
+        if (!loaded || partiesData.length === 0) {
             const today = getTodayDate();
-            partiesData.push({ id: 101, player: "Стрельцов А.В.", scores: [20,20,20,20,40,60,80,20,20,80], total: 380, dateStr: today });
-            partiesData.push({ id: 102, player: "Ишимцев А.Г.", scores: [30,30,30,30,30,30,30,30,30,30], total: 300, dateStr: today });
+            partiesData = [
+                { id: 1001, player: "Стрельцов А.В.", scores: [20,20,20,20,40,60,80,20,20,80], total: 380, dateStr: today },
+                { id: 1002, player: "Ишимцев А.Г.", scores: [30,30,30,30,30,30,30,30,30,30], total: 300, dateStr: today }
+            ];
+            saveToLocalStorage();
         }
         renderAll();
+        setupEventListeners();
     }
-
-    // события
-    manualAddBtn.addEventListener('click', () => {
-        const points = parseInt(manualScoreInput.value, 10);
-        if (isNaN(points) || points<0 || points>180) { alert("Очки 0-180"); return; }
-        const selected = prompt("Игрок (Стрельцов А.В., Ишимцев А.Г., Новоселов Е.В.)", "Стрельцов А.В.");
-        if (selected && ALL_PLAYERS.includes(selected)) addThrow(selected, points);
-        else alert("Игрок не найден");
-    });
-    resetSessionBtn.addEventListener('click', resetCurrentSessions);
-    importBtn.addEventListener('click', () => importFileInput.click());
-    importFileInput.addEventListener('change', importFile);
-    resetAllBtn.addEventListener('click', resetAllHistory);
-    printBtn.addEventListener('click', printReport);
-    emailBtn.addEventListener('click', sendEmail);
-    addDemo();
+    init();
 </script>
 </body>
 </html>
