@@ -83,7 +83,7 @@
         <div class="undo-group">
             <button id="undoLastBtn" style="background:#e67e22;">↩️ Отмена</button>
             <button id="resetSessionBtn" style="background:#6d4c3c;">🔄 Сброс сессии</button>
-            <button id="syncNowBtn" style="background:#2e7d32;">☁️ Синхронизировать</button>
+            <button id="syncNowBtn" style="background:#2e7d32;">☁️ Сохранить в облако</button>
         </div>
     </div>
 
@@ -93,6 +93,7 @@
         <button id="importBtn">📥 Импорт JSON</button>
         <button id="resetAllBtn" style="background:#6d4c3c;">🗑️ Сброс истории</button>
         <button id="printBtn">🖨️ Печать</button>
+        <button id="loadFromCloudBtn" style="background:#2e7d32;">📥 Загрузить из облака</button>
     </div>
 
     <div class="filter-area">
@@ -106,18 +107,17 @@
 
     <div class="table-wrapper">
         <table><thead><tr><th>Дата</th><th>Игрок</th><th>Очки партии (10)</th><th>Сумма</th><th></th></tr></thead>
-        <tbody id="tableBody"><tr><td colspan="5">Нет партий. Нажмите на игрока!</td></table></tbody>
+        <tbody id="tableBody"><tr><td colspan="5">Нет партий. Нажмите на игрока!</td></tr></tbody>
     </table>
     </div>
 
     <div id="ratingArea"></div>
     <div id="recordsArea" class="record-box"></div>
-    <div class="footer">✅ Синхронизация через Google Sheets. Все устройства видят общие данные.</div>
+    <div class="footer">✅ «Сохранить в облако» — отправляет ваши данные в Google Таблицу. «Загрузить из облака» — получает данные с другого устройства.</div>
 </div>
 
 <script>
     // ========== НАСТРОЙКИ GOOGLE SHEETS ==========
-    // ВАШ URL ИЗ GOOGLE APPS SCRIPT (работает без прокси)
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbznQ1SKJHkbMNJaidQpbOMRSq72wvXnmA0jwUUP3OVg7f1IjadhqPHDWtKQ78hnUCTcLw/exec";
     
     let partiesData = [];
@@ -141,9 +141,10 @@
         } catch(e) { return false; }
     }
 
+    // СОХРАНЕНИЕ в Google Sheets (отправляем локальные данные)
     async function syncToCloud() {
         const statusDiv = document.getElementById('syncStatus');
-        statusDiv.innerHTML = '☁️ Отправка данных...';
+        statusDiv.innerHTML = '☁️ Отправка данных в облако...';
         statusDiv.className = 'sync-status';
         
         try {
@@ -155,7 +156,7 @@
                 statusDiv.innerHTML = '☁️ Данные сохранены в облако ✅';
                 statusDiv.className = 'sync-status online';
                 setTimeout(() => {
-                    statusDiv.innerHTML = '☁️ Синхронизация активна';
+                    statusDiv.innerHTML = '☁️ Готово';
                 }, 2000);
                 return true;
             } else {
@@ -163,15 +164,17 @@
             }
         } catch(e) {
             console.error('Sync error:', e);
-            statusDiv.innerHTML = '❌ Ошибка: ' + e.message;
+            statusDiv.innerHTML = '❌ Ошибка сохранения: ' + e.message;
             statusDiv.className = 'sync-status error';
             return false;
         }
     }
 
+    // ЗАГРУЗКА из Google Sheets (получаем данные из таблицы)
     async function syncFromCloud() {
         const statusDiv = document.getElementById('syncStatus');
-        statusDiv.innerHTML = '☁️ Загрузка данных...';
+        statusDiv.innerHTML = '☁️ Загрузка данных из облака...';
+        statusDiv.className = 'sync-status';
         
         try {
             const response = await fetch(SCRIPT_URL);
@@ -181,20 +184,23 @@
                 if (data.length > 0) {
                     partiesData = data;
                     saveToLocalStorage();
+                    renderAll();
+                    statusDiv.innerHTML = '☁️ Данные загружены из облака ✅';
+                    statusDiv.className = 'sync-status online';
+                    setTimeout(() => {
+                        statusDiv.innerHTML = '☁️ Готово';
+                    }, 2000);
+                } else {
+                    statusDiv.innerHTML = '☁️ В облаке нет данных';
+                    statusDiv.className = 'sync-status offline';
                 }
-                renderAll();
-                statusDiv.innerHTML = '☁️ Данные загружены из облака ✅';
-                statusDiv.className = 'sync-status online';
-                setTimeout(() => {
-                    statusDiv.innerHTML = '☁️ Синхронизация активна';
-                }, 2000);
             } else {
                 throw new Error('Неверный формат');
             }
         } catch(e) {
             console.error('Load error:', e);
-            statusDiv.innerHTML = '⚠️ Работаем локально';
-            statusDiv.className = 'sync-status offline';
+            statusDiv.innerHTML = '⚠️ Ошибка загрузки: ' + e.message;
+            statusDiv.className = 'sync-status error';
         }
     }
 
@@ -354,7 +360,7 @@
 
     function exportData() { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ partiesData, currentSessions }, null, 2)])); a.download = `darts_${getTodayDate()}.json`; a.click(); }
     function importData(file) { const reader = new FileReader(); reader.onload = (e) => { try { const d = JSON.parse(e.target.result); partiesData = d.partiesData || []; currentSessions = d.currentSessions || { "Стрельцов А.В.":[], "Ишимцев А.Г.":[], "Новоселов Е.В.":[] }; saveToLocalStorage(); renderAll(); alert("Импорт успешен"); } catch(err) { alert("Ошибка"); } }; reader.readAsText(file); }
-    function printReport() { const win = window.open('', '_blank'); win.document.write(`<html><head><title>Дартс отчёт</title><style>body{font-family:sans-serif}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px}</style></head><body><h1>Отчёт по дартсу</h1><p>${new Date().toLocaleString()}</p><h2>Статистика</h2><table><thead><tr><th>Игрок</th><th>Партий</th><th>Сумма</th><th>Рекорд</th></tr></thead><tbody>${Array.from(computeStats().entries()).map(([p,d])=>`<tr><td>${p}</td><td>${d.parties}</td><td>${d.totalPoints}</td><td>${d.bestParty}</td></tr>`).join('')}</tbody></table><h2>История</h2><tr><thead><tr><th>Дата</th><th>Игрок</th><th>Очки</th><th>Сумма</th></tr></thead><tbody>${partiesData.map(p=>`<tr><td>${p.dateStr}</td><td>${p.player}</td><td>${p.scores.join(', ')}</td><td>${p.total}</td></tr>`).join('')}</tbody></td></body></html>`); win.document.close(); win.print(); }
+    function printReport() { const win = window.open('', '_blank'); win.document.write(`<html><head><title>Дартс отчёт</title><style>body{font-family:sans-serif}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px}</style></head><body><h1>Отчёт по дартсу</h1><p>${new Date().toLocaleString()}</p><h2>Статистика</h2><table><thead><tr><th>Игрок</th><th>Партий</th><th>Сумма</th><th>Рекорд</th></tr></thead><tbody>${Array.from(computeStats().entries()).map(([p,d])=>`<td>${p}</td><td>${d.parties}</td><td>${d.totalPoints}</td><td>${d.bestParty}</td></tr>`).join('')}</tbody></table><h2>История</h2><tr><thead><tr><th>Дата</th><th>Игрок</th><th>Очки</th><th>Сумма</th></tr></thead><tbody>${partiesData.map(p=>`<tr><td>${p.dateStr}</td><td>${p.player}</td><td>${p.scores.join(', ')}</td><td>${p.total}</td></tr>`).join('')}</tbody></table></body></html>`); win.document.close(); win.print(); }
 
     function setupEventListeners() {
         document.querySelectorAll('.player-live-btn').forEach(btn => btn.onclick = () => { let points = parseInt(document.getElementById('manualScore').value); if(isNaN(points)) points = parseInt(document.getElementById('scoreSelect').value); addThrow(btn.dataset.player, points); });
@@ -370,6 +376,7 @@
         document.getElementById('filterStart').onchange = () => renderAll();
         document.getElementById('filterEnd').onchange = () => renderAll();
         document.getElementById('syncNowBtn').onclick = () => { syncToCloud(); };
+        document.getElementById('loadFromCloudBtn').onclick = () => { syncFromCloud(); };
     }
 
     function init() {
@@ -381,7 +388,6 @@
         }
         renderAll();
         setupEventListeners();
-        setTimeout(() => syncFromCloud(), 500);
     }
     init();
 </script>
