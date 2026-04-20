@@ -12,15 +12,16 @@
         .sync-status { text-align: center; font-size: 0.7rem; padding: 4px; border-radius: 20px; margin: 8px 0; background: #2c5e3a; }
         .sync-status.online { background: #2e7d32; }
         .sync-status.offline { background: #8d6e63; }
+        .sync-status.error { background: #c62828; }
         .online-panel { background: #0e2a1c; border-radius: 1.2rem; padding: 0.8rem; margin-bottom: 16px; border: 1px solid #d4af37; }
         .live-buttons { display: flex; flex-direction: column; gap: 10px; margin: 12px 0; }
-        .player-live-btn { background: #1d3b28; border: 2px solid #f5b642; border-radius: 60px; padding: 14px 16px; font-size: 1rem; font-weight: bold; width: 100%; text-align: center; color: #ffefcf; cursor: pointer; }
+        .player-live-btn { background: #1d3b28; border: 2px solid #f5b642; border-radius: 60px; padding: 14px 16px; font-size: 1rem; font-weight: bold; width: 100%; text-align: center; color: #ffefcf; cursor: pointer; touch-action: manipulation; }
         .player-live-btn.flash { background: #4caf50; border-color: #ffeb3b; }
         .score-input-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
         .score-input-group select, .score-input-group input { background: #1d3522; border: 1px solid #d4af37; padding: 12px; border-radius: 40px; color: #ffefcf; }
         .score-input-group select { flex: 2; }
         .score-input-group input { width: 90px; }
-        .score-input-group button { flex: 1; background: #f5b642; border: none; border-radius: 40px; font-weight: bold; cursor: pointer; }
+        .score-input-group button { flex: 1; background: #f5b642; border: none; border-radius: 40px; font-weight: bold; cursor: pointer; color: #1e3a2a; }
         .undo-group { display: flex; gap: 8px; margin-top: 12px; }
         .undo-group button { flex: 1; background: #3a6b4e; padding: 10px; border: none; border-radius: 40px; font-weight: bold; color: white; cursor: pointer; }
         .current-session { background: #0b2417; border-radius: 1rem; padding: 10px; margin: 12px 0; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
@@ -115,8 +116,8 @@
 
 <script>
     // ========== НАСТРОЙКИ GOOGLE SHEETS ==========
-    // ⚠️ ВСТАВЬТЕ ВАШУ ССЫЛКУ СЮДА ⚠️
-    const SYNC_URL = "https://script.google.com/macros/s/AKfycbyzExn7ZOxWHA1FPQBstbpPKjCi8lBuj5Iaysd9eyWkQNC4b6mjF9sS_EAo5cB1wQPV2w/exec";
+    // ⚠️ ВАША ССЫЛКА (уже вставлена) ⚠️
+    const SYNC_URL = "https://script.google.com/macros/s/AKfycbwRtlafSxKP_FqNjiXJj47QTL2VzBYK8p9KrNC5TYyE/dev";
     
     let partiesData = [];
     let currentSessions = { "Стрельцов А.В.": [], "Ишимцев А.Г.": [], "Новоселов Е.В.": [] };
@@ -124,7 +125,6 @@
     const STORAGE_KEY = "darts_live_data";
     let lastThrowInfo = { player: null, timestamp: 0 };
 
-    // Сохранение в localStorage
     function saveToLocalStorage() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({ partiesData, currentSessions }));
     }
@@ -140,47 +140,77 @@
         } catch(e) { return false; }
     }
 
-    // Синхронизация с Google Sheets
+    // Функция сохранения в Google Sheets через JSONP + скрытую форму
     async function syncToCloud() {
-        if (!SYNC_URL || SYNC_URL === "ВАША_ССЫЛКА_НА_GOOGLE_APPS_SCRIPT") {
-            document.getElementById('syncStatus').innerHTML = '⚠️ Синхронизация не настроена. Вставьте ссылку в код.';
-            return false;
-        }
+        const statusDiv = document.getElementById('syncStatus');
+        statusDiv.innerHTML = '☁️ Отправка данных...';
+        statusDiv.className = 'sync-status';
+        
         try {
-            const response = await fetch(SYNC_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'save', parties: partiesData })
+            // Кодируем данные для отправки через GET (JSONP)
+            const dataStr = encodeURIComponent(JSON.stringify({ action: 'save', parties: partiesData }));
+            const url = `${SYNC_URL}?data=${dataStr}&t=${Date.now()}`;
+            
+            // Используем fetch с правильными настройками
+            const response = await fetch(url, {
+                method: 'GET',
+                mode: 'cors'
             });
-            document.getElementById('syncStatus').innerHTML = '☁️ Синхронизация выполнена! ✅';
-            document.getElementById('syncStatus').className = 'sync-status online';
-            setTimeout(() => {
-                document.getElementById('syncStatus').innerHTML = '☁️ Синхронизация активна';
-            }, 2000);
-            return true;
+            
+            const result = await response.text();
+            if (result === 'OK' || result.includes('OK')) {
+                statusDiv.innerHTML = '☁️ Данные сохранены в облако ✅';
+                statusDiv.className = 'sync-status online';
+                setTimeout(() => {
+                    statusDiv.innerHTML = '☁️ Синхронизация активна';
+                }, 2000);
+                return true;
+            } else {
+                throw new Error('Сервер вернул ошибку');
+            }
         } catch(e) {
-            document.getElementById('syncStatus').innerHTML = '❌ Ошибка синхронизации';
+            console.error('Sync error:', e);
+            statusDiv.innerHTML = '❌ Ошибка синхронизации. Проверьте интернет.';
+            statusDiv.className = 'sync-status error';
             return false;
         }
     }
 
     async function syncFromCloud() {
-        if (!SYNC_URL || SYNC_URL === "ВАША_ССЫЛКА_НА_GOOGLE_APPS_SCRIPT") return;
+        const statusDiv = document.getElementById('syncStatus');
+        statusDiv.innerHTML = '☁️ Загрузка данных...';
+        
         try {
-            const response = await fetch(SYNC_URL + '?action=load');
+            const url = `${SYNC_URL}?action=load&t=${Date.now()}`;
+            const response = await fetch(url, {
+                method: 'GET',
+                mode: 'cors'
+            });
+            
             const data = await response.json();
-            if (Array.isArray(data) && data.length > 0) {
-                partiesData = data;
-                saveToLocalStorage();
+            if (Array.isArray(data) && data.length >= 0) {
+                if (data.length > 0) {
+                    partiesData = data;
+                    saveToLocalStorage();
+                }
                 renderAll();
-                document.getElementById('syncStatus').innerHTML = '☁️ Данные загружены из облака ✅';
-                document.getElementById('syncStatus').className = 'sync-status online';
+                statusDiv.innerHTML = '☁️ Данные загружены из облака ✅';
+                statusDiv.className = 'sync-status online';
                 setTimeout(() => {
-                    document.getElementById('syncStatus').innerHTML = '☁️ Синхронизация активна';
+                    statusDiv.innerHTML = '☁️ Синхронизация активна';
                 }, 2000);
+            } else if (data === 'OK') {
+                // Ничего не загрузили, но и ошибки нет
+                statusDiv.innerHTML = '☁️ Синхронизация активна';
+                statusDiv.className = 'sync-status online';
+            } else {
+                throw new Error('Неверный формат данных');
             }
-        } catch(e) { console.log('sync error', e); }
+        } catch(e) {
+            console.error('Load error:', e);
+            statusDiv.innerHTML = '⚠️ Не удалось загрузить данные из облака (работаем локально)';
+            statusDiv.className = 'sync-status offline';
+        }
     }
 
     // Основные функции игры
@@ -268,7 +298,7 @@
         if (filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="5">Нет партий. Добавьте броски!</td></tr>'; return; }
         let rows = '';
         for (let p of filtered.sort((a,b)=>b.dateStr.localeCompare(a.dateStr))) {
-            rows += `<tr><td>${p.dateStr}</td><td>${p.player}</td><td>${p.scores.join(', ')}</td><td style="color:#ffda88;">${p.total}</td>
+            rows += `<tr><td>${p.dateStr}</td><td>${p.player}</td><td style="max-width:250px; overflow-x:auto;">${p.scores.join(', ')}</td><td style="color:#ffda88;">${p.total}</td>
                 <td><button class="edit-btn" data-id="${p.id}">✏️</button><button class="delete-btn" data-id="${p.id}">✖</button></td></tr>`;
         }
         tbody.innerHTML = rows;
@@ -313,10 +343,9 @@
 
     function renderAll() { const stats = computeStats(); renderStatsCards(stats); renderHistory(); renderCurrentSession(); renderRating(stats); renderRecords(stats); }
 
-    // Экспорт/Импорт
     function exportData() { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ partiesData, currentSessions }, null, 2)])); a.download = `darts_${getTodayDate()}.json`; a.click(); }
     function importData(file) { const reader = new FileReader(); reader.onload = (e) => { try { const d = JSON.parse(e.target.result); partiesData = d.partiesData || []; currentSessions = d.currentSessions || { "Стрельцов А.В.":[], "Ишимцев А.Г.":[], "Новоселов Е.В.":[] }; saveToLocalStorage(); renderAll(); alert("Импорт успешен"); } catch(err) { alert("Ошибка"); } }; reader.readAsText(file); }
-    function printReport() { const win = window.open('', '_blank'); win.document.write(`<html><head><title>Дартс отчёт</title><style>body{font-family:sans-serif}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px}</style></head><body><h1>Отчёт по дартсу</h1><p>${new Date().toLocaleString()}</p><h2>Статистика</h2><table><tr><th>Игрок</th><th>Партий</th><th>Сумма</th><th>Рекорд</th></tr>${Array.from(computeStats().entries()).map(([p,d])=>`<tr><td>${p}</td><td>${d.parties}</td><td>${d.totalPoints}</td><td>${d.bestParty}</td></tr>`).join('')}</table><h2>История</h2><table><tr><th>Дата</th><th>Игрок</th><th>Очки</th><th>Сумма</th></tr>${partiesData.map(p=>`<tr><td>${p.dateStr}</td><td>${p.player}</td><td>${p.scores.join(', ')}</td><td>${p.total}</td></tr>`).join('')}</table></body></html>`); win.document.close(); win.print(); }
+    function printReport() { const win = window.open('', '_blank'); win.document.write(`<html><head><title>Дартс отчёт</title><style>body{font-family:sans-serif}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px}</style></head><body><h1>Отчёт по дартсу</h1><p>${new Date().toLocaleString()}</p><h2>Статистика</h2><table><thead><tr><th>Игрок</th><th>Партий</th><th>Сумма</th><th>Рекорд</th></tr></thead><tbody>${Array.from(computeStats().entries()).map(([p,d])=>`<tr><td>${p}</td><td>${d.parties}</td><td>${d.totalPoints}</td><td>${d.bestParty}</td></tr>`).join('')}</tbody></table><h2>История</h2><tr><thead><tr><th>Дата</th><th>Игрок</th><th>Очки</th><th>Сумма</th></tr></thead><tbody>${partiesData.map(p=>`<tr><td>${p.dateStr}</td><td>${p.player}</td><td>${p.scores.join(', ')}</td><td>${p.total}</td></tr>`).join('')}</tbody></table></body></html>`); win.document.close(); win.print(); }
 
     function setupEventListeners() {
         document.querySelectorAll('.player-live-btn').forEach(btn => btn.onclick = () => { let points = parseInt(document.getElementById('manualScore').value); if(isNaN(points)) points = parseInt(document.getElementById('scoreSelect').value); addThrow(btn.dataset.player, points); });
@@ -343,7 +372,8 @@
         }
         renderAll();
         setupEventListeners();
-        syncFromCloud();
+        // Пытаемся загрузить из облака при старте
+        setTimeout(() => syncFromCloud(), 500);
     }
     init();
 </script>
