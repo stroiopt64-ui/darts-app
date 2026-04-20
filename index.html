@@ -112,12 +112,14 @@
 
     <div id="ratingArea"></div>
     <div id="recordsArea" class="record-box"></div>
-    <div class="footer">✅ Синхронизация через Google Sheets</div>
+    <div class="footer">✅ Синхронизация через Google Sheets (с обходом CORS)</div>
 </div>
 
 <script>
-    // ========== ВАШ URL ИЗ GOOGLE APPS SCRIPT ==========
+    // ========== НАСТРОЙКИ ==========
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbznQ1SKJHkbMNJaidQpbOMRSq72wvXnmA0jwUUP3OVg7f1IjadhqPHDWtKQ78hnUCTcLw/exec";
+    // Публичный CORS-прокси для обхода ограничений
+    const CORS_PROXY = "https://cors-anywhere.herokuapp.com/";
     
     let partiesData = [];
     let currentSessions = { "Стрельцов А.В.": [], "Ишимцев А.Г.": [], "Новоселов Е.В.": [] };
@@ -147,7 +149,7 @@
         
         try {
             const dataStr = encodeURIComponent(JSON.stringify({ action: 'save', parties: partiesData }));
-            const response = await fetch(`${SCRIPT_URL}?data=${dataStr}`);
+            const response = await fetch(`${CORS_PROXY}${SCRIPT_URL}?data=${dataStr}`);
             const result = await response.text();
             
             if (result === 'OK') {
@@ -161,6 +163,7 @@
                 throw new Error(result);
             }
         } catch(e) {
+            console.error('Sync error:', e);
             statusDiv.innerHTML = '❌ Ошибка: ' + e.message;
             statusDiv.className = 'sync-status error';
             return false;
@@ -172,7 +175,7 @@
         statusDiv.innerHTML = '☁️ Загрузка данных...';
         
         try {
-            const response = await fetch(SCRIPT_URL);
+            const response = await fetch(`${CORS_PROXY}${SCRIPT_URL}`);
             const data = await response.json();
             
             if (Array.isArray(data)) {
@@ -190,6 +193,7 @@
                 throw new Error('Неверный формат');
             }
         } catch(e) {
+            console.error('Load error:', e);
             statusDiv.innerHTML = '⚠️ Работаем локально';
             statusDiv.className = 'sync-status offline';
         }
@@ -276,7 +280,7 @@
     function renderHistory() {
         const filtered = getFilteredParties();
         const tbody = document.getElementById('tableBody');
-        if (filtered.length === 0) { tbody.innerHTML = '<td><td colspan="5">Нет партий. Добавьте броски!</td></tr>'; return; }
+        if (filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="5">Нет партий. Добавьте броски!</td></tr>'; return; }
         let rows = '';
         for (let p of filtered.sort((a,b)=>b.dateStr.localeCompare(a.dateStr))) {
             rows += `<tr>
@@ -308,9 +312,16 @@
     function renderRating(statsMap) {
         const sorted = Array.from(statsMap.entries()).filter(([_,d])=>d.parties>0).sort((a,b)=>b[1].totalPoints - a[1].totalPoints);
         const ratingDiv = document.getElementById('ratingArea');
-        if (sorted.length === 0) { ratingDiv.innerHTML = '<h3>🏅 РЕЙТИНГ</h3><p>Нет данных</p>'; return; }
-        let html = '<h3>🏅 РЕЙТИНГ</h3><div class="table-wrapper"><table style="min-width:400px;"><thead><tr><th>#</th><th>Игрок</th><th>Партий</th><th>Сумма</th><th>Среднее</th></tr></thead><tbody>';
-        sorted.forEach(([player, data], idx) => { html += `<tr><td>${idx+1}</td>}<strong>${player}</strong></td><td>${data.parties}</td><td>${data.totalPoints}</td><td>${(data.totalPoints/data.parties).toFixed(1)}</td></tr>`; });
+        if (sorted.length === 0) {
+            ratingDiv.innerHTML = '<h3>🏅 РЕЙТИНГ</h3><p style="background:#0b2417; padding:12px; border-radius:1rem;">Нет данных</p>';
+            return;
+        }
+        let html = '<h3>🏅 РЕЙТИНГ</h3><div class="table-wrapper"><table style="min-width:400px;"><thead><tr><th>#</th><th>Игрок</th><th>Партий</th><th>Сумма очков</th><th>Среднее за партию</th></tr></thead><tbody>';
+        for (let i = 0; i < sorted.length; i++) {
+            const [player, data] = sorted[i];
+            const avg = (data.totalPoints / data.parties).toFixed(1);
+            html += `<tr><td>${i+1}</td><td><strong>${player}</strong></td><td>${data.parties}</td><td>${data.totalPoints}</td><td>${avg}</td></tr>`;
+        }
         html += `</tbody></table></div>`;
         ratingDiv.innerHTML = html;
     }
@@ -327,7 +338,14 @@
             <div class="record-item"><div>🎲 ВСЕГО ПАРТИЙ</div><div class="record-number">${partiesData.length}</div></div>`;
     }
 
-    function renderAll() { const stats = computeStats(); renderStatsCards(stats); renderHistory(); renderCurrentSession(); renderRating(stats); renderRecords(stats); }
+    function renderAll() { 
+        const stats = computeStats(); 
+        renderStatsCards(stats); 
+        renderHistory(); 
+        renderCurrentSession(); 
+        renderRating(stats); 
+        renderRecords(stats); 
+    }
 
     function exportData() { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ partiesData, currentSessions }, null, 2)])); a.download = `darts_${getTodayDate()}.json`; a.click(); }
     function importData(file) { const reader = new FileReader(); reader.onload = (e) => { try { const d = JSON.parse(e.target.result); partiesData = d.partiesData || []; currentSessions = d.currentSessions || { "Стрельцов А.В.":[], "Ишимцев А.Г.":[], "Новоселов Е.В.":[] }; saveToLocalStorage(); renderAll(); alert("Импорт успешен"); } catch(err) { alert("Ошибка"); } }; reader.readAsText(file); }
