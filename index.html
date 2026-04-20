@@ -118,13 +118,17 @@
 
 <script>
     // ========== НАСТРОЙКИ GOOGLE SHEETS ==========
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbznQ1SKJHkbMNJaidQpbOMRSq72wvXnmA0jwUUP3OVg7f1IjadhqPHDWtKQ78hnUCTcLw/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwJGGpAICLDYJ1bUCXFd8biM_saSUuUlUlbOnArS3q4OUlDPORdGHzXCwk6mSEoMN5F/exec";
     
     let partiesData = [];
     let currentSessions = { "Стрельцов А.В.": [], "Ишимцев А.Г.": [], "Новоселов Е.В.": [] };
     const ALL_PLAYERS = ["Стрельцов А.В.", "Ишимцев А.Г.", "Новоселов Е.В."];
     const STORAGE_KEY = "darts_live_data";
     let lastThrowInfo = { player: null, timestamp: 0 };
+
+    function generateId() {
+        return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    }
 
     function saveToLocalStorage() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({ partiesData, currentSessions }));
@@ -141,28 +145,38 @@
         } catch(e) { return false; }
     }
 
-    // СОХРАНЕНИЕ в Google Sheets (отправляем локальные данные)
+    // ✅ НОВАЯ СИНХРОНИЗАЦИЯ — без CORS проблем
     async function syncToCloud() {
         const statusDiv = document.getElementById('syncStatus');
         statusDiv.innerHTML = '☁️ Отправка данных в облако...';
         statusDiv.className = 'sync-status';
-        
+
         try {
-            const dataStr = encodeURIComponent(JSON.stringify({ action: 'save', parties: partiesData }));
-            const response = await fetch(`${SCRIPT_URL}?data=${dataStr}`);
-            const result = await response.text();
-            
-            if (result === 'OK') {
-                statusDiv.innerHTML = '☁️ Данные сохранены в облако ✅';
-                statusDiv.className = 'sync-status online';
-                setTimeout(() => {
-                    statusDiv.innerHTML = '☁️ Готово';
-                }, 2000);
-                return true;
-            } else {
-                throw new Error(result);
+            const body = new URLSearchParams({
+                action: 'save',
+                data: JSON.stringify(partiesData)
+            });
+
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body
+            });
+
+            const result = await response.json();
+
+            if (!result.ok) {
+                throw new Error(result.error || 'Ошибка сохранения');
             }
-        } catch(e) {
+
+            statusDiv.innerHTML = `☁️ Данные сохранены в облако ✅ (${result.saved || 0})`;
+            statusDiv.className = 'sync-status online';
+
+            setTimeout(() => {
+                statusDiv.innerHTML = '☁️ Готово';
+            }, 2000);
+
+            return true;
+        } catch (e) {
             console.error('Sync error:', e);
             statusDiv.innerHTML = '❌ Ошибка сохранения: ' + e.message;
             statusDiv.className = 'sync-status error';
@@ -170,46 +184,69 @@
         }
     }
 
-    // ЗАГРУЗКА из Google Sheets (получаем данные из таблицы)
     async function syncFromCloud() {
         const statusDiv = document.getElementById('syncStatus');
         statusDiv.innerHTML = '☁️ Загрузка данных из облака...';
         statusDiv.className = 'sync-status';
-        
+
         try {
-            const response = await fetch(SCRIPT_URL);
-            const data = await response.json();
-            
-            if (Array.isArray(data)) {
-                if (data.length > 0) {
-                    partiesData = data;
-                    saveToLocalStorage();
-                    renderAll();
-                    statusDiv.innerHTML = '☁️ Данные загружены из облака ✅';
-                    statusDiv.className = 'sync-status online';
-                    setTimeout(() => {
-                        statusDiv.innerHTML = '☁️ Готово';
-                    }, 2000);
-                } else {
-                    statusDiv.innerHTML = '☁️ В облаке нет данных';
-                    statusDiv.className = 'sync-status offline';
-                }
-            } else {
-                throw new Error('Неверный формат');
+            const url = `${SCRIPT_URL}?action=load`;
+            const response = await fetch(url, {
+                method: 'GET'
+            });
+
+            const result = await response.json();
+
+            if (!result.ok) {
+                throw new Error(result.error || 'Ошибка загрузки');
             }
-        } catch(e) {
+
+            if (Array.isArray(result.parties)) {
+                partiesData = result.parties.map(p => ({
+                    id: p.id || generateId(),
+                    player: p.player || '',
+                    scores: Array.isArray(p.scores) ? p.scores.map(Number) : [],
+                    total: Number(p.total || 0),
+                    dateStr: p.dateStr || new Date().toISOString().slice(0,10)
+                })).filter(p => p.player && p.scores.length === 10);
+
+                saveToLocalStorage();
+                renderAll();
+
+                statusDiv.innerHTML = `☁️ Данные загружены из облака ✅ (${partiesData.length})`;
+                statusDiv.className = 'sync-status online';
+            } else {
+                statusDiv.innerHTML = '☁️ В облаке нет данных';
+                statusDiv.className = 'sync-status offline';
+            }
+
+            setTimeout(() => {
+                statusDiv.innerHTML = '☁️ Готово';
+            }, 2000);
+
+            return true;
+        } catch (e) {
             console.error('Load error:', e);
             statusDiv.innerHTML = '⚠️ Ошибка загрузки: ' + e.message;
             statusDiv.className = 'sync-status error';
+            return false;
         }
     }
 
-    function getTodayDate() { return new Date().toISOString().slice(0,10); }
+    function getTodayDate() { 
+        return new Date().toISOString().slice(0,10); 
+    }
 
     function saveParty(player, scoresArray) {
         if (scoresArray.length !== 10) return false;
-        const total = scoresArray.reduce((s,v)=>s+v,0);
-        partiesData.push({ id: Date.now(), player, scores: [...scoresArray], total, dateStr: getTodayDate() });
+        const total = scoresArray.reduce((s, v) => s + v, 0);
+        partiesData.push({
+            id: generateId(),
+            player,
+            scores: [...scoresArray],
+            total,
+            dateStr: getTodayDate()
+        });
         currentSessions[player] = [];
         saveToLocalStorage();
         renderAll();
@@ -217,49 +254,94 @@
     }
 
     function addThrow(player, points) {
-        if (points < 0 || points > 180) { alert("Очки от 0 до 180"); return false; }
+        if (points < 0 || points > 180) { 
+            alert("Очки от 0 до 180"); 
+            return false; 
+        }
         currentSessions[player].push(points);
         lastThrowInfo = { player, timestamp: Date.now() };
         const btn = document.querySelector(`.player-live-btn[data-player="${player}"]`);
-        if (btn) { btn.classList.add('flash'); setTimeout(() => btn.classList.remove('flash'), 300); }
-        if (currentSessions[player].length === 10) saveParty(player, [...currentSessions[player]]);
-        else { saveToLocalStorage(); renderAll(); }
+        if (btn) { 
+            btn.classList.add('flash'); 
+            setTimeout(() => btn.classList.remove('flash'), 300); 
+        }
+        if (currentSessions[player].length === 10) {
+            saveParty(player, [...currentSessions[player]]);
+        } else { 
+            saveToLocalStorage(); 
+            renderAll(); 
+        }
         return true;
     }
 
     function undoLastThrow() {
         let lastPlayer = lastThrowInfo.player;
         if (!lastPlayer || !currentSessions[lastPlayer]?.length) {
-            for (let p of ALL_PLAYERS) { if (currentSessions[p].length > 0) { lastPlayer = p; break; } }
+            for (let p of ALL_PLAYERS) { 
+                if (currentSessions[p].length > 0) { 
+                    lastPlayer = p; 
+                    break; 
+                } 
+            }
         }
-        if (!lastPlayer) { alert("Нет бросков для отмены"); return; }
+        if (!lastPlayer) { 
+            alert("Нет бросков для отмены"); 
+            return; 
+        }
         currentSessions[lastPlayer].pop();
-        lastThrowInfo = currentSessions[lastPlayer].length > 0 ? { player: lastPlayer, timestamp: Date.now() } : { player: null, timestamp: 0 };
+        lastThrowInfo = currentSessions[lastPlayer].length > 0 
+            ? { player: lastPlayer, timestamp: Date.now() } 
+            : { player: null, timestamp: 0 };
         saveToLocalStorage();
         renderAll();
     }
 
-    function deletePartyById(id) { partiesData = partiesData.filter(p => p.id !== id); saveToLocalStorage(); renderAll(); }
+    function deletePartyById(id) { 
+        partiesData = partiesData.filter(p => p.id !== id); 
+        saveToLocalStorage(); 
+        renderAll(); 
+    }
+
     function editParty(id, newScores) {
         const index = partiesData.findIndex(p => p.id === id);
         if (index === -1) return;
-        if (newScores.length !== 10) { alert("Нужно ровно 10 чисел"); return; }
+        if (newScores.length !== 10) { 
+            alert("Нужно ровно 10 чисел"); 
+            return; 
+        }
         partiesData[index].scores = [...newScores];
         partiesData[index].total = newScores.reduce((a,b)=>a+b,0);
         saveToLocalStorage();
         renderAll();
     }
-    function resetCurrentSessions() { for (let p of ALL_PLAYERS) currentSessions[p] = []; lastThrowInfo = { player: null, timestamp: 0 }; saveToLocalStorage(); renderAll(); }
-    function resetAllHistory() { if (confirm("Удалить ВСЕ партии?")) { partiesData = []; saveToLocalStorage(); renderAll(); } }
+
+    function resetCurrentSessions() { 
+        for (let p of ALL_PLAYERS) currentSessions[p] = []; 
+        lastThrowInfo = { player: null, timestamp: 0 }; 
+        saveToLocalStorage(); 
+        renderAll(); 
+    }
+
+    function resetAllHistory() { 
+        if (confirm("Удалить ВСЕ партии?")) { 
+            partiesData = []; 
+            saveToLocalStorage(); 
+            renderAll(); 
+        } 
+    }
 
     function computeStats() {
         const map = new Map();
-        for (let p of ALL_PLAYERS) map.set(p, { parties: 0, totalPoints: 0, bestParty: 0 });
+        for (let p of ALL_PLAYERS) {
+            map.set(p, { parties: 0, totalPoints: 0, bestParty: 0 });
+        }
         for (let party of partiesData) {
             const rec = map.get(party.player);
-            rec.parties++;
-            rec.totalPoints += party.total;
-            if (party.total > rec.bestParty) rec.bestParty = party.total;
+            if (rec) {
+                rec.parties++;
+                rec.totalPoints += party.total;
+                if (party.total > rec.bestParty) rec.bestParty = party.total;
+            }
         }
         return map;
     }
@@ -268,16 +350,22 @@
         const start = document.getElementById('filterStart').value;
         const end = document.getElementById('filterEnd').value;
         if (!start && !end) return [...partiesData];
-        return partiesData.filter(p => { if (start && p.dateStr < start) return false; if (end && p.dateStr > end) return false; return true; });
+        return partiesData.filter(p => { 
+            if (start && p.dateStr < start) return false; 
+            if (end && p.dateStr > end) return false; 
+            return true; 
+        });
     }
 
     function renderStatsCards(statsMap) {
         let html = '';
         for (let [player, data] of statsMap.entries()) {
-            html += `<div class="player-card"><div class="player-name">🎯 ${player}</div>
+            html += `<div class="player-card">
+                <div class="player-name">🎯 ${player}</div>
                 <div class="stat"><span>📌 Партий:</span><span class="stat-value">${data.parties}</span></div>
                 <div class="stat"><span>🏆 Сумма:</span><span class="stat-value">${data.totalPoints}</span></div>
-                <div class="stat"><span>⚡ Рекорд:</span><span class="stat-value">${data.bestParty}</span></div></div>`;
+                <div class="stat"><span>⚡ Рекорд:</span><span class="stat-value">${data.bestParty}</span></div>
+            </div>`;
         }
         document.getElementById('statsCards').innerHTML = html;
     }
@@ -285,7 +373,10 @@
     function renderHistory() {
         const filtered = getFilteredParties();
         const tbody = document.getElementById('tableBody');
-        if (filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="5">Нет партий. Добавьте броски!</td></tr>'; return; }
+        if (filtered.length === 0) { 
+            tbody.innerHTML = '<tr><td colspan="5">Нет партий. Добавьте броски!</td></tr>'; 
+            return; 
+        }
         let rows = '';
         for (let p of filtered.sort((a,b)=>b.dateStr.localeCompare(a.dateStr))) {
             rows += `<tr>
@@ -293,12 +384,33 @@
                 <td>${p.player}</td>
                 <td style="max-width:250px; overflow-x:auto;">${p.scores.join(', ')}</td>
                 <td style="color:#ffda88;">${p.total}</td>
-                <td><button class="edit-btn" data-id="${p.id}">✏️</button><button class="delete-btn" data-id="${p.id}">✖</button></td>
+                <td>
+                    <button class="edit-btn" data-id="${p.id}">✏️</button>
+                    <button class="delete-btn" data-id="${p.id}">✖</button>
+                </td>
             </tr>`;
         }
         tbody.innerHTML = rows;
-        document.querySelectorAll('.edit-btn').forEach(btn => btn.onclick = () => { const id = Number(btn.dataset.id); const party = partiesData.find(p=>p.id===id); if(party){ const newScores = prompt("10 чисел через пробел", party.scores.join(" ")); if(newScores){ const nums = newScores.trim().split(/\s+/).map(Number).filter(n=>!isNaN(n)&&n>=0&&n<=180); if(nums.length===10) editParty(id,nums); else alert("10 чисел"); } } });
-        document.querySelectorAll('.delete-btn').forEach(btn => btn.onclick = () => deletePartyById(Number(btn.dataset.id)));
+        
+        // Event listeners для кнопок редактирования/удаления
+        document.querySelectorAll('.edit-btn').forEach(btn => {
+            btn.onclick = () => { 
+                const id = btn.dataset.id;
+                const party = partiesData.find(p => p.id === id);
+                if (party) {
+                    const newScores = prompt("10 чисел через пробел", party.scores.join(" "));
+                    if (newScores) {
+                        const nums = newScores.trim().split(/\s+/).map(Number).filter(n => !isNaN(n) && n >= 0 && n <= 180);
+                        if (nums.length === 10) editParty(id, nums);
+                        else alert("Нужно ровно 10 чисел от 0 до 180");
+                    }
+                }
+            };
+        });
+        
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.onclick = () => deletePartyById(btn.dataset.id);
+        });
     }
 
     function renderCurrentSession() {
@@ -309,18 +421,24 @@
             const cnt = throws.length;
             const sum = throws.reduce((a,b)=>a+b,0);
             const isHighlight = (lastThrowInfo.player === player && (now - lastThrowInfo.timestamp) < 2000);
-            html += `<div class="current-badge ${isHighlight ? 'highlight' : ''}"><strong>${player.split(' ')[0]}</strong><br>${cnt}/10 бросков<br>${sum} очков</div>`;
+            html += `<div class="current-badge ${isHighlight ? 'highlight' : ''}">
+                <strong>${player.split(' ')[0]}</strong><br>${cnt}/10 бросков<br>${sum} очков
+            </div>`;
         }
         document.getElementById('currentSessionDisplay').innerHTML = html || '<span>Нет бросков</span>';
     }
 
     function renderRating(statsMap) {
-        const sorted = Array.from(statsMap.entries()).filter(([_,d])=>d.parties>0).sort((a,b)=>b[1].totalPoints - a[1].totalPoints);
+        const sorted = Array.from(statsMap.entries())
+            .filter(([_,d]) => d.parties > 0)
+            .sort((a,b) => b[1].totalPoints - a[1].totalPoints);
+        
         const ratingDiv = document.getElementById('ratingArea');
         if (sorted.length === 0) {
             ratingDiv.innerHTML = '<h3>🏅 РЕЙТИНГ</h3><p style="background:#0b2417; padding:12px; border-radius:1rem;">Нет данных</p>';
             return;
         }
+        
         let html = '<h3>🏅 РЕЙТИНГ</h3><div class="table-wrapper"><table style="min-width:400px;"><thead><tr><th>#</th><th>Игрок</th><th>Партий</th><th>Сумма очков</th><th>Среднее за партию</th></tr></thead><tbody>';
         for (let i = 0; i < sorted.length; i++) {
             const [player, data] = sorted[i];
@@ -333,20 +451,39 @@
                 <td>${avg}</td>
             </tr>`;
         }
-        html += `</tbody></table></div>`;
+        html += '</tbody></table></div>';
         ratingDiv.innerHTML = html;
     }
 
     function renderRecords(statsMap) {
         let globalBest = 0, bestPlayer = '';
         let totalLeader = { name: '', points: 0 };
+        
         for (let [player, data] of statsMap.entries()) {
-            if (data.bestParty > globalBest) { globalBest = data.bestParty; bestPlayer = player; }
-            if (data.totalPoints > totalLeader.points) { totalLeader = { name: player, points: data.totalPoints }; }
+            if (data.bestParty > globalBest) { 
+                globalBest = data.bestParty; 
+                bestPlayer = player; 
+            }
+            if (data.totalPoints > totalLeader.points) { 
+                totalLeader = { name: player, points: data.totalPoints }; 
+            }
         }
-        document.getElementById('recordsArea').innerHTML = `<div class="record-item"><div>🏆 МАКСИМУМ ЗА ПАРТИЮ</div><div class="record-number">${globalBest}</div><div>${bestPlayer || '—'}</div></div>
-            <div class="record-item"><div>💎 ЛИДЕР ПО СУММЕ</div><div class="record-number">${totalLeader.points}</div><div>${totalLeader.name || '—'}</div></div>
-            <div class="record-item"><div>🎲 ВСЕГО ПАРТИЙ</div><div class="record-number">${partiesData.length}</div></div>`;
+        
+        document.getElementById('recordsArea').innerHTML = `
+            <div class="record-item">
+                <div>🏆 МАКСИМУМ ЗА ПАРТИЮ</div>
+                <div class="record-number">${globalBest}</div>
+                <div>${bestPlayer || '—'}</div>
+            </div>
+            <div class="record-item">
+                <div>💎 ЛИДЕР ПО СУММЕ</div>
+                <div class="record-number">${totalLeader.points}</div>
+                <div>${totalLeader.name || '—'}</div>
+            </div>
+            <div class="record-item">
+                <div>🎲 ВСЕГО ПАРТИЙ</div>
+                <div class="record-number">${partiesData.length}</div>
+            </div>`;
     }
 
     function renderAll() { 
@@ -358,37 +495,135 @@
         renderRecords(stats); 
     }
 
-    function exportData() { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ partiesData, currentSessions }, null, 2)])); a.download = `darts_${getTodayDate()}.json`; a.click(); }
-    function importData(file) { const reader = new FileReader(); reader.onload = (e) => { try { const d = JSON.parse(e.target.result); partiesData = d.partiesData || []; currentSessions = d.currentSessions || { "Стрельцов А.В.":[], "Ишимцев А.Г.":[], "Новоселов Е.В.":[] }; saveToLocalStorage(); renderAll(); alert("Импорт успешен"); } catch(err) { alert("Ошибка"); } }; reader.readAsText(file); }
-    function printReport() { const win = window.open('', '_blank'); win.document.write(`<html><head><title>Дартс отчёт</title><style>body{font-family:sans-serif}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px}</style></head><body><h1>Отчёт по дартсу</h1><p>${new Date().toLocaleString()}</p><h2>Статистика</h2><table><thead><tr><th>Игрок</th><th>Партий</th><th>Сумма</th><th>Рекорд</th></tr></thead><tbody>${Array.from(computeStats().entries()).map(([p,d])=>`<td>${p}</td><td>${d.parties}</td><td>${d.totalPoints}</td><td>${d.bestParty}</td></tr>`).join('')}</tbody></table><h2>История</h2><tr><thead><tr><th>Дата</th><th>Игрок</th><th>Очки</th><th>Сумма</th></tr></thead><tbody>${partiesData.map(p=>`<tr><td>${p.dateStr}</td><td>${p.player}</td><td>${p.scores.join(', ')}</td><td>${p.total}</td></tr>`).join('')}</tbody></table></body></html>`); win.document.close(); win.print(); }
+    function exportData() { 
+        const a = document.createElement('a'); 
+        a.href = URL.createObjectURL(new Blob([JSON.stringify({ partiesData, currentSessions }, null, 2)])); 
+        a.download = `darts_${getTodayDate()}.json`; 
+        a.click(); 
+    }
+
+    function importData(file) { 
+        const reader = new FileReader(); 
+        reader.onload = (e) => { 
+            try { 
+                const d = JSON.parse(e.target.result); 
+                partiesData = d.partiesData || []; 
+                currentSessions = d.currentSessions || { 
+                    "Стрельцов А.В.": [], 
+                    "Ишимцев А.Г.": [], 
+                    "Новоселов Е.В.": [] 
+                }; 
+                saveToLocalStorage(); 
+                renderAll(); 
+                alert("Импорт успешен"); 
+            } catch(err) { 
+                alert("Ошибка импорта"); 
+            } 
+        }; 
+        reader.readAsText(file); 
+    }
+
+    function printReport() { 
+        const win = window.open('', '_blank'); 
+        win.document.write(`
+            <html><head><title>Дартс отчёт</title>
+            <style>body{font-family:sans-serif}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px}</style></head>
+            <body>
+                <h1>Отчёт по дартсу</h1>
+                <p>${new Date().toLocaleString()}</p>
+                <h2>Статистика</h2>
+                <table><thead><tr><th>Игрок</th><th>Партий</th><th>Сумма</th><th>Рекорд</th></tr></thead><tbody>
+                    ${Array.from(computeStats().entries()).map(([p,d]) => 
+                        `<tr><td>${p}</td><td>${d.parties}</td><td>${d.totalPoints}</td><td>${d.bestParty}</td></tr>`
+                    ).join('')}
+                </tbody></table>
+                <h2>История</h2>
+                <table><thead><tr><th>Дата</th><th>Игрок</th><th>Очки</th><th>Сумма</th></tr></thead><tbody>
+                    ${partiesData.map(p => 
+                        `<tr><td>${p.dateStr}</td><td>${p.player}</td><td>${p.scores.join(', ')}</td><td>${p.total}</td></tr>`
+                    ).join('')}
+                </tbody></table>
+            </body></html>
+        `); 
+        win.document.close(); 
+        win.print(); 
+    }
 
     function setupEventListeners() {
-        document.querySelectorAll('.player-live-btn').forEach(btn => btn.onclick = () => { let points = parseInt(document.getElementById('manualScore').value); if(isNaN(points)) points = parseInt(document.getElementById('scoreSelect').value); addThrow(btn.dataset.player, points); });
-        document.getElementById('manualAddBtn').onclick = () => { let points = parseInt(document.getElementById('manualScore').value); if(isNaN(points)) points = parseInt(document.getElementById('scoreSelect').value); const ans = prompt("1-Стрельцов,2-Ишимцев,3-Новоселов","1"); if(ans==="1") addThrow("Стрельцов А.В.",points); else if(ans==="2") addThrow("Ишимцев А.Г.",points); else if(ans==="3") addThrow("Новоселов Е.В.",points); };
+        // Кнопки игроков
+        document.querySelectorAll('.player-live-btn').forEach(btn => {
+            btn.onclick = () => { 
+                let points = parseInt(document.getElementById('manualScore').value); 
+                if (isNaN(points)) {
+                    points = parseInt(document.getElementById('scoreSelect').value);
+                }
+                addThrow(btn.dataset.player, points); 
+            };
+        });
+
+        // Ручное добавление
+        document.getElementById('manualAddBtn').onclick = () => { 
+            let points = parseInt(document.getElementById('manualScore').value); 
+            if (isNaN(points)) {
+                points = parseInt(document.getElementById('scoreSelect').value);
+            }
+            const ans = prompt("1-Стрельцов,2-Ишимцев,3-Новоселов","1");
+            if (ans === "1") addThrow("Стрельцов А.В.", points);
+            else if (ans === "2") addThrow("Ишимцев А.Г.", points);
+            else if (ans === "3") addThrow("Новоселов Е.В.", points);
+        };
+
+        // Остальные кнопки
         document.getElementById('undoLastBtn').onclick = undoLastThrow;
         document.getElementById('resetSessionBtn').onclick = resetCurrentSessions;
         document.getElementById('resetAllBtn').onclick = resetAllHistory;
         document.getElementById('exportBtn').onclick = exportData;
         document.getElementById('importBtn').onclick = () => document.getElementById('importFileInput').click();
-        document.getElementById('importFileInput').onchange = (e) => { if(e.target.files[0]) importData(e.target.files[0]); e.target.value=''; };
+        document.getElementById('importFileInput').onchange = (e) => { 
+            if (e.target.files[0]) importData(e.target.files[0]); 
+            e.target.value = ''; 
+        };
         document.getElementById('printBtn').onclick = printReport;
-        document.getElementById('clearFilterBtn').onclick = () => { document.getElementById('filterStart').value = ''; document.getElementById('filterEnd').value = ''; renderAll(); };
+        document.getElementById('clearFilterBtn').onclick = () => { 
+            document.getElementById('filterStart').value = ''; 
+            document.getElementById('filterEnd').value = ''; 
+            renderAll(); 
+        };
         document.getElementById('filterStart').onchange = () => renderAll();
         document.getElementById('filterEnd').onchange = () => renderAll();
-        document.getElementById('syncNowBtn').onclick = () => { syncToCloud(); };
-        document.getElementById('loadFromCloudBtn').onclick = () => { syncFromCloud(); };
+        document.getElementById('syncNowBtn').onclick = syncToCloud;
+        document.getElementById('loadFromCloudBtn').onclick = syncFromCloud;
     }
 
-    function init() {
+    // ✅ ИНИЦИАЛИЗАЦИЯ с попыткой загрузки из облака
+    async function init() {
         loadFromLocalStorage();
-        if (partiesData.length === 0) {
-            partiesData = [];
-            currentSessions = { "Стрельцов А.В.": [], "Ишимцев А.Г.": [], "Новоселов Е.В.": [] };
-            saveToLocalStorage();
+
+        // Проверяем корректность данных
+        if (!Array.isArray(partiesData)) partiesData = [];
+        if (!currentSessions || typeof currentSessions !== 'object') {
+            currentSessions = {
+                "Стрельцов А.В.": [],
+                "Ишимцев А.Г.": [],
+                "Новоселов Е.В.": []
+            };
         }
+
         renderAll();
         setupEventListeners();
+
+        // Пытаемся загрузить из облака при старте, если есть сеть
+        if (navigator.onLine) {
+            setTimeout(async () => {
+                await syncFromCloud();
+            }, 1000);
+        } else {
+            const statusDiv = document.getElementById('syncStatus');
+            statusDiv.innerHTML = '📡 Нет сети, локальный режим';
+            statusDiv.className = 'sync-status offline';
+        }
     }
+
     init();
 </script>
 </body>
