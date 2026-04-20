@@ -3,204 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>Дартс | Живой ввод с отменой</title>
+    <title>Дартс | Синхронизация</title>
     <style>
-        * {
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
-        body {
-            background: #1a472a;
-            margin: 0;
-            padding: 12px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            color: #f0f3e8;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: rgba(10, 25, 15, 0.95);
-            border-radius: 1.5rem;
-            padding: 1rem;
-            border: 1px solid #d4af37;
-        }
-        h1 {
-            text-align: center;
-            font-size: 1.6rem;
-            margin: 0 0 0.2rem;
-            background: linear-gradient(135deg, #FFD966, #C5A028);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-        .sub {
-            text-align: center;
-            font-size: 0.7rem;
-            color: #c0dfb0;
-            border-bottom: 1px dashed #6a8e5c;
-            padding-bottom: 8px;
-            margin-bottom: 16px;
-        }
-        .online-panel {
-            background: #0e2a1c;
-            border-radius: 1.2rem;
-            padding: 0.8rem;
-            margin-bottom: 16px;
-            border: 1px solid #d4af37;
-        }
-        .live-buttons {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin: 12px 0;
-        }
-        .player-live-btn {
-            background: #1d3b28;
-            border: 2px solid #f5b642;
-            border-radius: 60px;
-            padding: 14px 16px;
-            font-size: 1rem;
-            font-weight: bold;
-            width: 100%;
-            text-align: center;
-            color: #ffefcf;
-            cursor: pointer;
-            touch-action: manipulation;
-            transition: all 0.1s ease;
-        }
-        .player-live-btn:active { transform: scale(0.97); }
-        .player-live-btn.flash {
-            background: #4caf50;
-            border-color: #ffeb3b;
-            color: white;
-            transition: 0.05s;
-        }
-        .score-input-group {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            align-items: center;
-            justify-content: space-between;
-            margin-top: 12px;
-        }
-        .score-input-group select, .score-input-group input {
-            background: #1d3522;
-            border: 1px solid #d4af37;
-            padding: 12px;
-            border-radius: 40px;
-            font-size: 1rem;
-            text-align: center;
-            color: #ffefcf;
-        }
-        .score-input-group select { flex: 2; min-width: 100px; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { background: #1a472a; margin: 0; padding: 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #f0f3e8; }
+        .container { max-width: 1200px; margin: 0 auto; background: rgba(10, 25, 15, 0.95); border-radius: 1.5rem; padding: 1rem; border: 1px solid #d4af37; }
+        h1 { text-align: center; font-size: 1.6rem; margin: 0; background: linear-gradient(135deg, #FFD966, #C5A028); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .sync-status { text-align: center; font-size: 0.7rem; padding: 4px; border-radius: 20px; margin: 8px 0; background: #2c5e3a; }
+        .sync-status.online { background: #2e7d32; }
+        .sync-status.offline { background: #8d6e63; }
+        .online-panel { background: #0e2a1c; border-radius: 1.2rem; padding: 0.8rem; margin-bottom: 16px; border: 1px solid #d4af37; }
+        .live-buttons { display: flex; flex-direction: column; gap: 10px; margin: 12px 0; }
+        .player-live-btn { background: #1d3b28; border: 2px solid #f5b642; border-radius: 60px; padding: 14px 16px; font-size: 1rem; font-weight: bold; width: 100%; text-align: center; color: #ffefcf; cursor: pointer; }
+        .player-live-btn.flash { background: #4caf50; border-color: #ffeb3b; }
+        .score-input-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+        .score-input-group select, .score-input-group input { background: #1d3522; border: 1px solid #d4af37; padding: 12px; border-radius: 40px; color: #ffefcf; }
+        .score-input-group select { flex: 2; }
         .score-input-group input { width: 90px; }
-        .score-input-group button { flex: 1; background: #f5b642; padding: 12px; border: none; border-radius: 40px; font-weight: bold; cursor: pointer; color: #1e3a2a; }
-        .undo-group {
-            display: flex;
-            gap: 8px;
-            margin-top: 12px;
-        }
-        .undo-group button {
-            flex: 1;
-            background: #3a6b4e;
-            padding: 10px;
-            border: none;
-            border-radius: 40px;
-            font-weight: bold;
-            color: white;
-            cursor: pointer;
-        }
-        .current-session {
-            background: #0b2417;
-            border-radius: 1rem;
-            padding: 10px;
-            margin: 12px 0;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            justify-content: center;
-        }
-        .current-badge {
-            background: #2c5e3a;
-            padding: 8px 12px;
-            border-radius: 40px;
-            font-size: 0.8rem;
-            font-weight: bold;
-            transition: 0.1s;
-            min-width: 110px;
-            text-align: center;
-        }
-        .current-badge.highlight {
-            background: #4caf50;
-            color: #1e3a2a;
-            box-shadow: 0 0 8px #ffeb3b;
-        }
-        .reset-session {
-            background: #6d4c3c;
-            width: 100%;
-            padding: 10px;
-            font-size: 0.9rem;
-            border: none;
-            border-radius: 40px;
-            font-weight: bold;
-            color: white;
-            cursor: pointer;
-            margin-top: 8px;
-        }
-        .history-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin: 12px 0;
-        }
-        .history-actions button {
-            flex: 1;
-            padding: 10px 8px;
-            font-size: 0.75rem;
-            background: #4a5b3e;
-            color: #ffecb3;
-            border: none;
-            border-radius: 40px;
-            cursor: pointer;
-        }
-        .filter-area {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            background: #0b2a18;
-            padding: 8px;
-            border-radius: 2rem;
-            margin: 10px 0;
-            align-items: center;
-            justify-content: center;
-        }
-        .filter-area input, .filter-area button {
-            padding: 6px 12px;
-            border-radius: 30px;
-            border: none;
-            background: #1d3522;
-            color: #ffefcf;
-        }
-        .stats-cards {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin: 16px 0;
-        }
-        .player-card {
-            background: #0c2a18;
-            border-radius: 1.2rem;
-            padding: 0.8rem;
-            border-left: 6px solid #f5b642;
-        }
-        .player-name { font-size: 1.2rem; font-weight: bold; margin-bottom: 6px; }
-        .stat { font-size: 0.8rem; margin: 4px 0; display: flex; justify-content: space-between; }
-        .stat-value { font-weight: 800; font-size: 1.1rem; color: #ffd966; }
+        .score-input-group button { flex: 1; background: #f5b642; border: none; border-radius: 40px; font-weight: bold; cursor: pointer; }
+        .undo-group { display: flex; gap: 8px; margin-top: 12px; }
+        .undo-group button { flex: 1; background: #3a6b4e; padding: 10px; border: none; border-radius: 40px; font-weight: bold; color: white; cursor: pointer; }
+        .current-session { background: #0b2417; border-radius: 1rem; padding: 10px; margin: 12px 0; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+        .current-badge { background: #2c5e3a; padding: 8px 12px; border-radius: 40px; text-align: center; min-width: 110px; }
+        .current-badge.highlight { background: #4caf50; color: #1e3a2a; }
+        .history-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+        .history-actions button { flex: 1; padding: 10px 8px; font-size: 0.75rem; background: #4a5b3e; color: #ffecb3; border: none; border-radius: 40px; cursor: pointer; }
+        .filter-area { display: flex; flex-wrap: wrap; gap: 8px; background: #0b2a18; padding: 8px; border-radius: 2rem; margin: 10px 0; justify-content: center; }
+        .filter-area input, .filter-area button { padding: 6px 12px; border-radius: 30px; border: none; background: #1d3522; color: #ffefcf; }
+        .stats-cards { display: flex; flex-direction: column; gap: 12px; margin: 16px 0; }
+        .player-card { background: #0c2a18; border-radius: 1.2rem; padding: 0.8rem; border-left: 6px solid #f5b642; }
+        .player-name { font-size: 1.2rem; font-weight: bold; }
+        .stat { font-size: 0.8rem; display: flex; justify-content: space-between; }
+        .stat-value { font-weight: 800; color: #ffd966; }
         .table-wrapper { overflow-x: auto; margin: 16px 0; border-radius: 1rem; background: #0b2417; }
         table { width: 100%; min-width: 550px; border-collapse: collapse; font-size: 0.7rem; }
         th, td { padding: 8px 4px; text-align: center; border-bottom: 1px solid #2e6a3e; }
         th { background: #1c462c; color: #fad974; }
-        .edit-btn, .delete-btn { background: #3a6b4e; border: none; border-radius: 20px; padding: 4px 8px; margin: 0 2px; color: white; cursor: pointer; font-size: 0.65rem; }
+        .edit-btn, .delete-btn { background: #3a6b4e; border: none; border-radius: 20px; padding: 4px 8px; margin: 0 2px; color: white; cursor: pointer; }
         .delete-btn { background: #a13a2c; }
         .record-box { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
         .record-item { background: #1a3b26; border-radius: 1rem; padding: 8px; text-align: center; }
@@ -208,19 +47,16 @@
         .footer { text-align: center; font-size: 0.6rem; margin-top: 16px; color: #aacf9e; }
         @media (min-width: 550px) {
             .live-buttons { flex-direction: row; }
-            .player-live-btn { width: auto; flex: 1; }
             .stats-cards { flex-direction: row; flex-wrap: wrap; }
             .player-card { flex: 1; }
             .record-box { flex-direction: row; }
-            .reset-session { width: auto; }
-            .undo-group button { flex: 1; }
         }
     </style>
 </head>
 <body>
 <div class="container">
     <h1>🎯 ДАРТС</h1>
-    <div class="sub"></div>
+    <div id="syncStatus" class="sync-status offline">📡 Синхронизация: локальный режим</div>
 
     <div class="online-panel">
         <div style="text-align:center; font-weight:bold;">⚡ ТЕКУЩАЯ СЕССИЯ</div>
@@ -239,13 +75,14 @@
                 <option value="140">140</option><option value="160">160</option><option value="180">180</option>
                 <option value="0">0</option>
             </select>
-            <input type="number" id="manualScore" placeholder="своё" value="" step="1" min="0" max="180">
+            <input type="number" id="manualScore" placeholder="своё" step="1" min="0" max="180">
             <button id="manualAddBtn">➕ Добавить</button>
         </div>
 
         <div class="undo-group">
-            <button id="undoLastBtn" style="background:#e67e22;">↩️ Отмена последнего броска</button>
-            <button id="resetSessionBtn" class="reset-session" style="margin-top:0;">🔄 Сбросить сессию</button>
+            <button id="undoLastBtn" style="background:#e67e22;">↩️ Отмена</button>
+            <button id="resetSessionBtn" style="background:#6d4c3c;">🔄 Сброс сессии</button>
+            <button id="syncNowBtn" style="background:#2e7d32;">☁️ Синхронизировать</button>
         </div>
     </div>
 
@@ -258,7 +95,7 @@
     </div>
 
     <div class="filter-area">
-        <span>📅 Фильтр по дате:</span>
+        <span>📅 Фильтр:</span>
         <input type="date" id="filterStart">
         <input type="date" id="filterEnd">
         <button id="clearFilterBtn">Сбросить</button>
@@ -267,35 +104,29 @@
     <div id="statsCards" class="stats-cards"></div>
 
     <div class="table-wrapper">
-        <table>
-            <thead><tr><th>Дата</th><th>Игрок</th><th>Очки партии (10)</th><th>Сумма</th><th>Действия</th></tr></thead>
-            <tbody id="tableBody"><tr><td colspan="5">Нет партий. Нажмите на игрока!</td></tr></tbody>
-        </table>
+        <table><thead><tr><th>Дата</th><th>Игрок</th><th>Очки партии (10)</th><th>Сумма</th><th></th></tr></thead>
+        <tbody id="tableBody"><tr><td colspan="5">Нет партий. Нажмите на игрока!</td></tr></tbody></table>
     </div>
 
     <div id="ratingArea"></div>
     <div id="recordsArea" class="record-box"></div>
-    <div class="footer">✅ Последний бросок подсвечивается зелёным. Кнопка отмены удаляет последний бросок (у любого игрока).</div>
+    <div class="footer">✅ Данные синхронизируются при нажатии кнопки «Синхронизировать»</div>
 </div>
 
 <script>
-    // ---------- ДАННЫЕ ----------
+    // ========== НАСТРОЙКИ GOOGLE SHEETS ==========
+    // ⚠️ ВСТАВЬТЕ ВАШУ ССЫЛКУ СЮДА ⚠️
+    const SYNC_URL = "https://script.google.com/macros/s/AKfycbyzExn7ZOxWHA1FPQBstbpPKjCi8lBuj5Iaysd9eyWkQNC4b6mjF9sS_EAo5cB1wQPV2w/exec";
+    
     let partiesData = [];
-    let currentSessions = {
-        "Стрельцов А.В.": [],
-        "Ишимцев А.Г.": [],
-        "Новоселов Е.В.": []
-    };
+    let currentSessions = { "Стрельцов А.В.": [], "Ишимцев А.Г.": [], "Новоселов Е.В.": [] };
     const ALL_PLAYERS = ["Стрельцов А.В.", "Ишимцев А.Г.", "Новоселов Е.В."];
     const STORAGE_KEY = "darts_live_data";
-
-    // Для подсветки последнего броска
     let lastThrowInfo = { player: null, timestamp: 0 };
 
-    // Сохранение / загрузка
+    // Сохранение в localStorage
     function saveToLocalStorage() {
-        const toStore = { partiesData, currentSessions };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ partiesData, currentSessions }));
     }
 
     function loadFromLocalStorage() {
@@ -304,135 +135,103 @@
         try {
             const data = JSON.parse(raw);
             partiesData = data.partiesData || [];
-            currentSessions = data.currentSessions || {
-                "Стрельцов А.В.": [], "Ишимцев А.Г.": [], "Новоселов Е.В.": []
-            };
+            currentSessions = data.currentSessions || { "Стрельцов А.В.": [], "Ишимцев А.Г.": [], "Новоселов Е.В.": [] };
             return true;
         } catch(e) { return false; }
     }
 
+    // Синхронизация с Google Sheets
+    async function syncToCloud() {
+        if (!SYNC_URL || SYNC_URL === "ВАША_ССЫЛКА_НА_GOOGLE_APPS_SCRIPT") {
+            document.getElementById('syncStatus').innerHTML = '⚠️ Синхронизация не настроена. Вставьте ссылку в код.';
+            return false;
+        }
+        try {
+            const response = await fetch(SYNC_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'save', parties: partiesData })
+            });
+            document.getElementById('syncStatus').innerHTML = '☁️ Синхронизация выполнена! ✅';
+            document.getElementById('syncStatus').className = 'sync-status online';
+            setTimeout(() => {
+                document.getElementById('syncStatus').innerHTML = '☁️ Синхронизация активна';
+            }, 2000);
+            return true;
+        } catch(e) {
+            document.getElementById('syncStatus').innerHTML = '❌ Ошибка синхронизации';
+            return false;
+        }
+    }
+
+    async function syncFromCloud() {
+        if (!SYNC_URL || SYNC_URL === "ВАША_ССЫЛКА_НА_GOOGLE_APPS_SCRIPT") return;
+        try {
+            const response = await fetch(SYNC_URL + '?action=load');
+            const data = await response.json();
+            if (Array.isArray(data) && data.length > 0) {
+                partiesData = data;
+                saveToLocalStorage();
+                renderAll();
+                document.getElementById('syncStatus').innerHTML = '☁️ Данные загружены из облака ✅';
+                document.getElementById('syncStatus').className = 'sync-status online';
+                setTimeout(() => {
+                    document.getElementById('syncStatus').innerHTML = '☁️ Синхронизация активна';
+                }, 2000);
+            }
+        } catch(e) { console.log('sync error', e); }
+    }
+
+    // Основные функции игры
     function getTodayDate() { return new Date().toISOString().slice(0,10); }
 
-    // Сохранить партию
     function saveParty(player, scoresArray) {
         if (scoresArray.length !== 10) return false;
         const total = scoresArray.reduce((s,v)=>s+v,0);
-        const newParty = {
-            id: Date.now(),
-            player: player,
-            scores: [...scoresArray],
-            total: total,
-            dateStr: getTodayDate()
-        };
-        partiesData.push(newParty);
+        partiesData.push({ id: Date.now(), player, scores: [...scoresArray], total, dateStr: getTodayDate() });
         currentSessions[player] = [];
         saveToLocalStorage();
         renderAll();
         return true;
     }
 
-    // Добавить бросок с подсветкой
     function addThrow(player, points) {
         if (points < 0 || points > 180) { alert("Очки от 0 до 180"); return false; }
         currentSessions[player].push(points);
-        
-        // Запоминаем последний бросок для подсветки
-        lastThrowInfo = { player: player, timestamp: Date.now() };
-        
-        // Визуальная подсветка кнопки игрока
+        lastThrowInfo = { player, timestamp: Date.now() };
         const btn = document.querySelector(`.player-live-btn[data-player="${player}"]`);
-        if (btn) {
-            btn.classList.add('flash');
-            setTimeout(() => btn.classList.remove('flash'), 300);
-        }
-        
-        if (currentSessions[player].length === 10) {
-            saveParty(player, [...currentSessions[player]]);
-        } else {
-            saveToLocalStorage();
-            renderAll();
-        }
+        if (btn) { btn.classList.add('flash'); setTimeout(() => btn.classList.remove('flash'), 300); }
+        if (currentSessions[player].length === 10) saveParty(player, [...currentSessions[player]]);
+        else { saveToLocalStorage(); renderAll(); }
         return true;
     }
 
-    // ОТМЕНА ПОСЛЕДНЕГО БРОСКА (у любого игрока)
     function undoLastThrow() {
-        // Ищем у кого из игроков есть броски
-        let lastPlayer = null;
-        
-        // Сначала проверяем по lastThrowInfo
-        if (lastThrowInfo.player && currentSessions[lastThrowInfo.player]?.length > 0) {
-            lastPlayer = lastThrowInfo.player;
-        } else {
-            // Ищем любого с бросками
-            for (let player of ALL_PLAYERS) {
-                if (currentSessions[player].length > 0) {
-                    lastPlayer = player;
-                    break;
-                }
-            }
+        let lastPlayer = lastThrowInfo.player;
+        if (!lastPlayer || !currentSessions[lastPlayer]?.length) {
+            for (let p of ALL_PLAYERS) { if (currentSessions[p].length > 0) { lastPlayer = p; break; } }
         }
-        
-        if (!lastPlayer) {
-            alert("Нет бросков для отмены");
-            return;
-        }
-        
-        const removed = currentSessions[lastPlayer].pop();
-        if (removed !== undefined) {
-            // Обновляем lastThrowInfo на предыдущий бросок (если есть)
-            if (currentSessions[lastPlayer].length > 0) {
-                lastThrowInfo = { player: lastPlayer, timestamp: Date.now() };
-            } else {
-                lastThrowInfo = { player: null, timestamp: 0 };
-            }
-            saveToLocalStorage();
-            renderAll();
-            // Визуальный фидбек
-            const undoBtn = document.getElementById('undoLastBtn');
-            undoBtn.style.background = '#f39c12';
-            setTimeout(() => undoBtn.style.background = '#e67e22', 200);
-        } else {
-            alert("Не удалось отменить бросок");
-        }
+        if (!lastPlayer) { alert("Нет бросков для отмены"); return; }
+        currentSessions[lastPlayer].pop();
+        lastThrowInfo = currentSessions[lastPlayer].length > 0 ? { player: lastPlayer, timestamp: Date.now() } : { player: null, timestamp: 0 };
+        saveToLocalStorage();
+        renderAll();
     }
 
-    // Редактирование партии
+    function deletePartyById(id) { partiesData = partiesData.filter(p => p.id !== id); saveToLocalStorage(); renderAll(); }
     function editParty(id, newScores) {
         const index = partiesData.findIndex(p => p.id === id);
         if (index === -1) return;
         if (newScores.length !== 10) { alert("Нужно ровно 10 чисел"); return; }
-        const total = newScores.reduce((a,b)=>a+b,0);
         partiesData[index].scores = [...newScores];
-        partiesData[index].total = total;
+        partiesData[index].total = newScores.reduce((a,b)=>a+b,0);
         saveToLocalStorage();
         renderAll();
     }
+    function resetCurrentSessions() { for (let p of ALL_PLAYERS) currentSessions[p] = []; lastThrowInfo = { player: null, timestamp: 0 }; saveToLocalStorage(); renderAll(); }
+    function resetAllHistory() { if (confirm("Удалить ВСЕ партии?")) { partiesData = []; saveToLocalStorage(); renderAll(); } }
 
-    function deletePartyById(id) {
-        partiesData = partiesData.filter(p => p.id !== id);
-        saveToLocalStorage();
-        renderAll();
-    }
-
-    function resetCurrentSessions() {
-        if (confirm("Сбросить все незавершённые броски?")) {
-            for (let p of ALL_PLAYERS) currentSessions[p] = [];
-            lastThrowInfo = { player: null, timestamp: 0 };
-            saveToLocalStorage();
-            renderAll();
-        }
-    }
-
-    function resetAllHistory() {
-        if (confirm("Удалить ВСЕ сохранённые партии? Сессии останутся.")) {
-            partiesData = [];
-            saveToLocalStorage();
-            renderAll();
-        }
-    }
-
-    // Статистика
     function computeStats() {
         const map = new Map();
         for (let p of ALL_PLAYERS) map.set(p, { parties: 0, totalPoints: 0, bestParty: 0 });
@@ -445,28 +244,20 @@
         return map;
     }
 
-    // Фильтр по датам
     function getFilteredParties() {
         const start = document.getElementById('filterStart').value;
         const end = document.getElementById('filterEnd').value;
         if (!start && !end) return [...partiesData];
-        return partiesData.filter(p => {
-            if (start && p.dateStr < start) return false;
-            if (end && p.dateStr > end) return false;
-            return true;
-        });
+        return partiesData.filter(p => { if (start && p.dateStr < start) return false; if (end && p.dateStr > end) return false; return true; });
     }
 
-    // ---------- ОТРИСОВКА ----------
     function renderStatsCards(statsMap) {
         let html = '';
         for (let [player, data] of statsMap.entries()) {
-            html += `<div class="player-card">
-                <div class="player-name">🎯 ${player}</div>
+            html += `<div class="player-card"><div class="player-name">🎯 ${player}</div>
                 <div class="stat"><span>📌 Партий:</span><span class="stat-value">${data.parties}</span></div>
                 <div class="stat"><span>🏆 Сумма:</span><span class="stat-value">${data.totalPoints}</span></div>
-                <div class="stat"><span>⚡ Рекорд:</span><span class="stat-value">${data.bestParty}</span></div>
-            </div>`;
+                <div class="stat"><span>⚡ Рекорд:</span><span class="stat-value">${data.bestParty}</span></div></div>`;
         }
         document.getElementById('statsCards').innerHTML = html;
     }
@@ -474,39 +265,15 @@
     function renderHistory() {
         const filtered = getFilteredParties();
         const tbody = document.getElementById('tableBody');
-        if (filtered.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5">Нет партий за выбранный период. Добавьте броски!</td></tr>';
-            return;
-        }
-        const sorted = [...filtered].sort((a,b)=> (b.dateStr||'').localeCompare(a.dateStr||''));
+        if (filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="5">Нет партий. Добавьте броски!</td></tr>'; return; }
         let rows = '';
-        for (let p of sorted) {
-            rows += `<tr>
-                <td>${p.dateStr}</td>
-                <td>${p.player}</td>
-                <td style="max-width:250px; overflow-x:auto;">${p.scores.join(', ')}</td>
-                <td style="color:#ffda88;">${p.total}</td>
-                <td><button class="edit-btn" data-id="${p.id}">✏️</button><button class="delete-btn" data-id="${p.id}">✖</button></td>
-            </tr>`;
+        for (let p of filtered.sort((a,b)=>b.dateStr.localeCompare(a.dateStr))) {
+            rows += `<tr><td>${p.dateStr}</td><td>${p.player}</td><td>${p.scores.join(', ')}</td><td style="color:#ffda88;">${p.total}</td>
+                <td><button class="edit-btn" data-id="${p.id}">✏️</button><button class="delete-btn" data-id="${p.id}">✖</button></td></tr>`;
         }
         tbody.innerHTML = rows;
-        
-        document.querySelectorAll('.edit-btn').forEach(btn => {
-            btn.onclick = () => {
-                const id = Number(btn.getAttribute('data-id'));
-                const party = partiesData.find(p => p.id === id);
-                if (!party) return;
-                const newScoresStr = prompt("Введите 10 чисел через пробел", party.scores.join(" "));
-                if (newScoresStr) {
-                    const nums = newScoresStr.trim().split(/\s+/).map(Number).filter(n=>!isNaN(n) && n>=0 && n<=180);
-                    if (nums.length === 10) editParty(id, nums);
-                    else alert("Нужно ровно 10 чисел от 0 до 180");
-                }
-            };
-        });
-        document.querySelectorAll('.delete-btn').forEach(btn => {
-            btn.onclick = () => { const id = Number(btn.getAttribute('data-id')); deletePartyById(id); };
-        });
+        document.querySelectorAll('.edit-btn').forEach(btn => btn.onclick = () => { const id = Number(btn.dataset.id); const party = partiesData.find(p=>p.id===id); if(party){ const newScores = prompt("10 чисел через пробел", party.scores.join(" ")); if(newScores){ const nums = newScores.trim().split(/\s+/).map(Number).filter(n=>!isNaN(n)&&n>=0&&n<=180); if(nums.length===10) editParty(id,nums); else alert("10 чисел"); } } });
+        document.querySelectorAll('.delete-btn').forEach(btn => btn.onclick = () => deletePartyById(Number(btn.dataset.id)));
     }
 
     function renderCurrentSession() {
@@ -516,15 +283,8 @@
             const throws = currentSessions[player];
             const cnt = throws.length;
             const sum = throws.reduce((a,b)=>a+b,0);
-            // Подсветка, если последний бросок был у этого игрока и прошло меньше 2 секунд
             const isHighlight = (lastThrowInfo.player === player && (now - lastThrowInfo.timestamp) < 2000);
-            const highlightClass = isHighlight ? 'highlight' : '';
-            
-            html += `<div class="current-badge ${highlightClass}">
-                        <strong>${player.split(' ')[0]}</strong><br>
-                        <span style="font-size:0.9rem;">${cnt}/10 бросков</span><br>
-                        <span style="font-size:0.85rem; color:#ffd966;">${sum} очков</span>
-                     </div>`;
+            html += `<div class="current-badge ${isHighlight ? 'highlight' : ''}"><strong>${player.split(' ')[0]}</strong><br>${cnt}/10 бросков<br>${sum} очков</div>`;
         }
         document.getElementById('currentSessionDisplay').innerHTML = html || '<span>Нет бросков</span>';
     }
@@ -533,11 +293,8 @@
         const sorted = Array.from(statsMap.entries()).filter(([_,d])=>d.parties>0).sort((a,b)=>b[1].totalPoints - a[1].totalPoints);
         const ratingDiv = document.getElementById('ratingArea');
         if (sorted.length === 0) { ratingDiv.innerHTML = '<h3>🏅 РЕЙТИНГ</h3><p>Нет данных</p>'; return; }
-        let html = '<h3>🏅 РЕЙТИНГ</h3><div class="table-wrapper"><table style="min-width:400px;"><thead><tr><th>#</th><th>Игрок</th><th>Партий</th><th>Сумма</th><th>Среднее</th></tr></thead><tbody>';
-        sorted.forEach(([player, data], idx) => {
-            const avg = data.parties ? (data.totalPoints / data.parties).toFixed(1) : 0;
-            html += `<tr><td>${idx+1}</td><td><strong>${player}</strong></td><td>${data.parties}</td><td>${data.totalPoints}</td><td>${avg}</td></tr>`;
-        });
+        let html = '<h3>🏅 РЕЙТИНГ</h3><div class="table-wrapper"><table><thead><tr><th>#</th><th>Игрок</th><th>Партий</th><th>Сумма</th><th>Среднее</th></tr></thead><tbody>';
+        sorted.forEach(([player, data], idx) => { html += `<tr><td>${idx+1}</td><td><strong>${player}</strong></td><td>${data.parties}</td><td>${data.totalPoints}</td><td>${(data.totalPoints/data.parties).toFixed(1)}</td></tr>`; });
         html += `</tbody></table></div>`;
         ratingDiv.innerHTML = html;
     }
@@ -549,123 +306,44 @@
             if (data.bestParty > globalBest) { globalBest = data.bestParty; bestPlayer = player; }
             if (data.totalPoints > totalLeader.points) { totalLeader = { name: player, points: data.totalPoints }; }
         }
-        document.getElementById('recordsArea').innerHTML = `
-            <div class="record-item"><div>🏆 МАКСИМУМ ЗА ПАРТИЮ</div><div class="record-number">${globalBest}</div><div>${bestPlayer || '—'}</div></div>
+        document.getElementById('recordsArea').innerHTML = `<div class="record-item"><div>🏆 МАКСИМУМ ЗА ПАРТИЮ</div><div class="record-number">${globalBest}</div><div>${bestPlayer || '—'}</div></div>
             <div class="record-item"><div>💎 ЛИДЕР ПО СУММЕ</div><div class="record-number">${totalLeader.points}</div><div>${totalLeader.name || '—'}</div></div>
-            <div class="record-item"><div>🎲 ВСЕГО ПАРТИЙ</div><div class="record-number">${partiesData.length}</div></div>
-        `;
+            <div class="record-item"><div>🎲 ВСЕГО ПАРТИЙ</div><div class="record-number">${partiesData.length}</div></div>`;
     }
 
-    function renderAll() {
-        const stats = computeStats();
-        renderStatsCards(stats);
-        renderHistory();
-        renderCurrentSession();
-        renderRating(stats);
-        renderRecords(stats);
-    }
+    function renderAll() { const stats = computeStats(); renderStatsCards(stats); renderHistory(); renderCurrentSession(); renderRating(stats); renderRecords(stats); }
 
-    // ---------- ЭКСПОРТ / ИМПОРТ / ПЕЧАТЬ ----------
-    function exportData() {
-        const exportObj = { partiesData, currentSessions, version: "1.0", exportDate: new Date().toISOString() };
-        const dataStr = JSON.stringify(exportObj, null, 2);
-        const blob = new Blob([dataStr], {type: "application/json"});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `darts_backup_${getTodayDate()}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-    }
+    // Экспорт/Импорт
+    function exportData() { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ partiesData, currentSessions }, null, 2)])); a.download = `darts_${getTodayDate()}.json`; a.click(); }
+    function importData(file) { const reader = new FileReader(); reader.onload = (e) => { try { const d = JSON.parse(e.target.result); partiesData = d.partiesData || []; currentSessions = d.currentSessions || { "Стрельцов А.В.":[], "Ишимцев А.Г.":[], "Новоселов Е.В.":[] }; saveToLocalStorage(); renderAll(); alert("Импорт успешен"); } catch(err) { alert("Ошибка"); } }; reader.readAsText(file); }
+    function printReport() { const win = window.open('', '_blank'); win.document.write(`<html><head><title>Дартс отчёт</title><style>body{font-family:sans-serif}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px}</style></head><body><h1>Отчёт по дартсу</h1><p>${new Date().toLocaleString()}</p><h2>Статистика</h2><table><tr><th>Игрок</th><th>Партий</th><th>Сумма</th><th>Рекорд</th></tr>${Array.from(computeStats().entries()).map(([p,d])=>`<tr><td>${p}</td><td>${d.parties}</td><td>${d.totalPoints}</td><td>${d.bestParty}</td></tr>`).join('')}</table><h2>История</h2><table><tr><th>Дата</th><th>Игрок</th><th>Очки</th><th>Сумма</th></tr>${partiesData.map(p=>`<tr><td>${p.dateStr}</td><td>${p.player}</td><td>${p.scores.join(', ')}</td><td>${p.total}</td></tr>`).join('')}</table></body></html>`); win.document.close(); win.print(); }
 
-    function importData(file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const imported = JSON.parse(e.target.result);
-                if (imported.partiesData && Array.isArray(imported.partiesData)) {
-                    partiesData = imported.partiesData;
-                    currentSessions = imported.currentSessions || {
-                        "Стрельцов А.В.": [], "Ишимцев А.Г.": [], "Новоселов Е.В.": []
-                    };
-                    saveToLocalStorage();
-                    renderAll();
-                    alert("Импорт успешен!");
-                } else { alert("Неверный формат файла"); }
-            } catch(err) { alert("Ошибка разбора JSON"); }
-        };
-        reader.readAsText(file);
-    }
-
-    function printReport() {
-        const win = window.open('', '_blank');
-        const stats = computeStats();
-        let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Дартс отчёт</title><style>body{font-family:sans-serif;margin:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px}</style></head><body><h1>Отчёт по дартсу</h1><p>${new Date().toLocaleString()}</p><h2>Статистика</h2><tr><thead><tr><th>Игрок</th><th>Партий</th><th>Сумма</th><th>Рекорд</th></tr></thead><tbody>`;
-        for (let [p,d] of stats.entries()) { html += `<tr><td>${p}</td><td>${d.parties}</td><td>${d.totalPoints}</td><td>${d.bestParty}</td></tr>`; }
-        html += `</tbody></table><h2>История</h2><td><thead><tr><th>Дата</th><th>Игрок</th><th>Очки</th><th>Сумма</th></tr></thead><tbody>`;
-        partiesData.forEach(p => { html += `<tr><td>${p.dateStr}</td><td>${p.player}</td><td>${p.scores.join(', ')}</td><td>${p.total}</td></tr>`; });
-        html += `</tbody></table></body></html>`;
-        win.document.write(html);
-        win.document.close();
-        win.print();
-    }
-
-    // ---------- ОБРАБОТЧИКИ ----------
     function setupEventListeners() {
-        document.querySelectorAll('.player-live-btn').forEach(btn => {
-            btn.onclick = () => {
-                const player = btn.getAttribute('data-player');
-                let points = 20;
-                const selectVal = parseInt(document.getElementById('scoreSelect').value, 10);
-                const manualVal = parseInt(document.getElementById('manualScore').value, 10);
-                if (!isNaN(manualVal) && manualVal >=0 && manualVal<=180) points = manualVal;
-                else if (!isNaN(selectVal)) points = selectVal;
-                addThrow(player, points);
-            };
-        });
-
-        document.getElementById('manualAddBtn').onclick = () => {
-            let points = parseInt(document.getElementById('manualScore').value, 10);
-            if (isNaN(points)) points = parseInt(document.getElementById('scoreSelect').value, 10);
-            if (isNaN(points) || points<0 || points>180) { alert("Выберите очки"); return; }
-            const answer = prompt("Кто бросает? (1-Стрельцов, 2-Ишимцев, 3-Новоселов)", "1");
-            if (answer === "1") addThrow("Стрельцов А.В.", points);
-            else if (answer === "2") addThrow("Ишимцев А.Г.", points);
-            else if (answer === "3") addThrow("Новоселов Е.В.", points);
-            else if (answer && ALL_PLAYERS.includes(answer)) addThrow(answer, points);
-            else alert("Игрок не распознан. Используйте кнопки.");
-        };
-
+        document.querySelectorAll('.player-live-btn').forEach(btn => btn.onclick = () => { let points = parseInt(document.getElementById('manualScore').value); if(isNaN(points)) points = parseInt(document.getElementById('scoreSelect').value); addThrow(btn.dataset.player, points); });
+        document.getElementById('manualAddBtn').onclick = () => { let points = parseInt(document.getElementById('manualScore').value); if(isNaN(points)) points = parseInt(document.getElementById('scoreSelect').value); const ans = prompt("1-Стрельцов,2-Ишимцев,3-Новоселов","1"); if(ans==="1") addThrow("Стрельцов А.В.",points); else if(ans==="2") addThrow("Ишимцев А.Г.",points); else if(ans==="3") addThrow("Новоселов Е.В.",points); };
         document.getElementById('undoLastBtn').onclick = undoLastThrow;
         document.getElementById('resetSessionBtn').onclick = resetCurrentSessions;
         document.getElementById('resetAllBtn').onclick = resetAllHistory;
-        document.getElementById('printBtn').onclick = printReport;
         document.getElementById('exportBtn').onclick = exportData;
         document.getElementById('importBtn').onclick = () => document.getElementById('importFileInput').click();
         document.getElementById('importFileInput').onchange = (e) => { if(e.target.files[0]) importData(e.target.files[0]); e.target.value=''; };
-        document.getElementById('clearFilterBtn').onclick = () => {
-            document.getElementById('filterStart').value = '';
-            document.getElementById('filterEnd').value = '';
-            renderAll();
-        };
+        document.getElementById('printBtn').onclick = printReport;
+        document.getElementById('clearFilterBtn').onclick = () => { document.getElementById('filterStart').value = ''; document.getElementById('filterEnd').value = ''; renderAll(); };
         document.getElementById('filterStart').onchange = () => renderAll();
         document.getElementById('filterEnd').onchange = () => renderAll();
+        document.getElementById('syncNowBtn').onclick = () => { syncToCloud(); };
     }
 
-    // Инициализация
     function init() {
-        const loaded = loadFromLocalStorage();
-        if (!loaded) {
+        loadFromLocalStorage();
+        if (partiesData.length === 0) {
             partiesData = [];
-            currentSessions = {
-                "Стрельцов А.В.": [],
-                "Ишимцев А.Г.": [],
-                "Новоселов Е.В.": []
-            };
+            currentSessions = { "Стрельцов А.В.": [], "Ишимцев А.Г.": [], "Новоселов Е.В.": [] };
             saveToLocalStorage();
         }
         renderAll();
         setupEventListeners();
+        syncFromCloud();
     }
     init();
 </script>
