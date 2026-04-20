@@ -106,22 +106,19 @@
 
     <div class="table-wrapper">
         <table><thead><tr><th>Дата</th><th>Игрок</th><th>Очки партии (10)</th><th>Сумма</th><th></th></tr></thead>
-        <tbody id="tableBody"><tr><td colspan="5">Нет партий. Нажмите на игрока!</td></tr></tbody>
+        <tbody id="tableBody"><tr><td colspan="5">Нет партий. Нажмите на игрока!</td></table></tbody>
     </table>
     </div>
 
     <div id="ratingArea"></div>
     <div id="recordsArea" class="record-box"></div>
-    <div class="footer">✅ Синхронизация через Google Sheets (с обходом CORS)</div>
+    <div class="footer">✅ Синхронизация через Google Sheets. Все устройства видят общие данные.</div>
 </div>
 
 <script>
-    // ========== НАСТРОЙКИ ==========
-    // ВАШ URL ИЗ GOOGLE APPS SCRIPT (работает, вы его проверяли)
+    // ========== НАСТРОЙКИ GOOGLE SHEETS ==========
+    // ВАШ URL ИЗ GOOGLE APPS SCRIPT (работает без прокси)
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbznQ1SKJHkbMNJaidQpbOMRSq72wvXnmA0jwUUP3OVg7f1IjadhqPHDWtKQ78hnUCTcLw/exec";
-    
-    // Бесплатный CORS-прокси, не требует активации
-    const CORS_PROXY = "https://api.allorigins.win/raw?url=";
     
     let partiesData = [];
     let currentSessions = { "Стрельцов А.В.": [], "Ишимцев А.Г.": [], "Новоселов Е.В.": [] };
@@ -144,7 +141,6 @@
         } catch(e) { return false; }
     }
 
-    // Сохранение в Google Sheets через прокси
     async function syncToCloud() {
         const statusDiv = document.getElementById('syncStatus');
         statusDiv.innerHTML = '☁️ Отправка данных...';
@@ -152,9 +148,7 @@
         
         try {
             const dataStr = encodeURIComponent(JSON.stringify({ action: 'save', parties: partiesData }));
-            // Используем прокси для GET-запроса
-            const proxyUrl = `${CORS_PROXY}${encodeURIComponent(`${SCRIPT_URL}?data=${dataStr}`)}`;
-            const response = await fetch(proxyUrl);
+            const response = await fetch(`${SCRIPT_URL}?data=${dataStr}`);
             const result = await response.text();
             
             if (result === 'OK') {
@@ -175,29 +169,13 @@
         }
     }
 
-    // Загрузка из Google Sheets через прокси
     async function syncFromCloud() {
         const statusDiv = document.getElementById('syncStatus');
         statusDiv.innerHTML = '☁️ Загрузка данных...';
         
         try {
-            const proxyUrl = `${CORS_PROXY}${encodeURIComponent(SCRIPT_URL)}`;
-            const response = await fetch(proxyUrl);
-            const text = await response.text();
-            
-            // Прокси может вернуть JSON в обёртке, извлекаем
-            let data;
-            try {
-                data = JSON.parse(text);
-            } catch(e) {
-                // Если прокси вернул в поле contents
-                if (text.includes('contents')) {
-                    const wrapped = JSON.parse(text);
-                    data = JSON.parse(wrapped.contents);
-                } else {
-                    throw e;
-                }
-            }
+            const response = await fetch(SCRIPT_URL);
+            const data = await response.json();
             
             if (Array.isArray(data)) {
                 if (data.length > 0) {
@@ -220,7 +198,6 @@
         }
     }
 
-    // Остальные функции игры (без изменений)
     function getTodayDate() { return new Date().toISOString().slice(0,10); }
 
     function saveParty(player, scoresArray) {
@@ -377,7 +354,7 @@
 
     function exportData() { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ partiesData, currentSessions }, null, 2)])); a.download = `darts_${getTodayDate()}.json`; a.click(); }
     function importData(file) { const reader = new FileReader(); reader.onload = (e) => { try { const d = JSON.parse(e.target.result); partiesData = d.partiesData || []; currentSessions = d.currentSessions || { "Стрельцов А.В.":[], "Ишимцев А.Г.":[], "Новоселов Е.В.":[] }; saveToLocalStorage(); renderAll(); alert("Импорт успешен"); } catch(err) { alert("Ошибка"); } }; reader.readAsText(file); }
-    function printReport() { const win = window.open('', '_blank'); win.document.write(`<html><head><title>Дартс отчёт</title><style>body{font-family:sans-serif}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px}</style></head><body><h1>Отчёт по дартсу</h1><p>${new Date().toLocaleString()}</p><h2>Статистика</h2><table><thead><tr><th>Игрок</th><th>Партий</th><th>Сумма</th><th>Рекорд</th></tr></thead><tbody>${Array.from(computeStats().entries()).map(([p,d])=>`<tr><td>${p}</td><td>${d.parties}</td><td>${d.totalPoints}</td><td>${d.bestParty}</td></tr>`).join('')}</tbody></table><h2>История</h2><tr><thead><tr><th>Дата</th><th>Игрок</th><th>Очки</th><th>Сумма</th><tr></thead><tbody>${partiesData.map(p=>`<tr><td>${p.dateStr}</td><td>${p.player}</td><td>${p.scores.join(', ')}</td><td>${p.total}</td></tr>`).join('')}</tbody></table></body></html>`); win.document.close(); win.print(); }
+    function printReport() { const win = window.open('', '_blank'); win.document.write(`<html><head><title>Дартс отчёт</title><style>body{font-family:sans-serif}table{border-collapse:collapse;width:100%}th,td{border:1px solid #aaa;padding:6px}</style></head><body><h1>Отчёт по дартсу</h1><p>${new Date().toLocaleString()}</p><h2>Статистика</h2><table><thead><tr><th>Игрок</th><th>Партий</th><th>Сумма</th><th>Рекорд</th></tr></thead><tbody>${Array.from(computeStats().entries()).map(([p,d])=>`<tr><td>${p}</td><td>${d.parties}</td><td>${d.totalPoints}</td><td>${d.bestParty}</td></tr>`).join('')}</tbody></table><h2>История</h2><tr><thead><tr><th>Дата</th><th>Игрок</th><th>Очки</th><th>Сумма</th></tr></thead><tbody>${partiesData.map(p=>`<tr><td>${p.dateStr}</td><td>${p.player}</td><td>${p.scores.join(', ')}</td><td>${p.total}</td></tr>`).join('')}</tbody></td></body></html>`); win.document.close(); win.print(); }
 
     function setupEventListeners() {
         document.querySelectorAll('.player-live-btn').forEach(btn => btn.onclick = () => { let points = parseInt(document.getElementById('manualScore').value); if(isNaN(points)) points = parseInt(document.getElementById('scoreSelect').value); addThrow(btn.dataset.player, points); });
