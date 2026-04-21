@@ -37,7 +37,14 @@
         .player-name { font-size: 1.2rem; font-weight: bold; }
         .stat { font-size: 0.8rem; display: flex; justify-content: space-between; }
         .stat-value { font-weight: 800; color: #ffd966; }
-        .table-wrapper { overflow-x: auto; margin: 16px 0; border-radius: 1rem; background: #0b2417; }
+        .table-wrapper {
+    overflow-y: auto;
+    max-height: 50vh;
+    border-radius: 1rem;
+    background: #0b2417;
+    border: 1px solid #2e6a3e;
+    margin: 16px 0;
+}
         table { width: 100%; min-width: 550px; border-collapse: collapse; font-size: 0.7rem; }
         th, td { padding: 8px 4px; text-align: center; border-bottom: 1px solid #2e6a3e; }
         th { background: #1c462c; color: #fad974; }
