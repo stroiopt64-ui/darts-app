@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>Дартс "Ремезов"</title>
+    <title>Дартс | Google Sheets синхронизация</title>
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { background: #1a472a; margin: 0; padding: 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #f0f3e8; }
@@ -13,11 +13,10 @@
         .sync-status.online { background: #2e7d32; }
         .sync-status.offline { background: #8d6e63; }
         .sync-status.error { background: #c62828; }
-        .sync-status.autosave { background: #2196f3; }
         .online-panel { background: #0e2a1c; border-radius: 1.2rem; padding: 0.8rem; margin-bottom: 16px; border: 1px solid #d4af37; }
         .live-buttons { display: flex; flex-direction: column; gap: 10px; margin: 12px 0; }
-        .player-live-btn { background: #1d3b28; border: 2px solid #f5b642; border-radius: 60px; padding: 14px 16px; font-size: 1rem; font-weight: bold; width: 100%; text-align: center; color: #ffefcf; cursor: pointer; touch-action: manipulation; transition: all 0.2s; }
-        .player-live-btn.flash { background: #4caf50 !important; border-color: #ffeb3b; transform: scale(1.02); }
+        .player-live-btn { background: #1d3b28; border: 2px solid #f5b642; border-radius: 60px; padding: 14px 16px; font-size: 1rem; font-weight: bold; width: 100%; text-align: center; color: #ffefcf; cursor: pointer; touch-action: manipulation; }
+        .player-live-btn.flash { background: #4caf50; border-color: #ffeb3b; }
         .score-input-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
         .score-input-group select, .score-input-group input { background: #1d3522; border: 1px solid #d4af37; padding: 12px; border-radius: 40px; color: #ffefcf; }
         .score-input-group select { flex: 2; }
@@ -41,7 +40,7 @@
         table { width: 100%; min-width: 550px; border-collapse: collapse; font-size: 0.7rem; }
         th, td { padding: 8px 4px; text-align: center; border-bottom: 1px solid #2e6a3e; }
         th { background: #1c462c; color: #fad974; }
-        .edit-btn, .delete-btn { background: #3a6b4e; border: none; border-radius: 20px; padding: 4px 8px; margin: 0 2px; color: white; cursor: pointer; font-size: 0.6rem; }
+        .edit-btn, .delete-btn { background: #3a6b4e; border: none; border-radius: 20px; padding: 4px 8px; margin: 0 2px; color: white; cursor: pointer; }
         .delete-btn { background: #a13a2c; }
         .record-box { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
         .record-item { background: #1a3b26; border-radius: 1rem; padding: 8px; text-align: center; }
@@ -57,7 +56,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🎯 ДАРТС "Ремезов"</h1>
+    <h1>🎯 ДАРТС</h1>
     <div id="syncStatus" class="sync-status offline">📡 Синхронизация: локальный режим</div>
 
     <div class="online-panel">
@@ -114,24 +113,18 @@
 
     <div id="ratingArea"></div>
     <div id="recordsArea" class="record-box"></div>
-    <div class="footer">✅ Автосохранение каждые 60 сек. Данные в Google Таблицу. Работает офлайн.</div>
+    <div class="footer">✅ «Сохранить в облако» — отправляет ваши данные в Google Таблицу. «Загрузить из облака» — получает данные с другого устройства.</div>
 </div>
 
 <script>
-    // ========== НАСТРОЙКИ ==========
-    const SCRIPT_URL = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://script.google.com/macros/s/AKfycbwJGGpAICLDYJ1bUCXFd8biM_saSUuUlUlbOnArS3q4OUlDPORdGHzXCwk6mSEoMN5F/exec");
+    // ========== НАСТРОЙКИ GOOGLE SHEETS ==========
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwJGGpAICLDYJ1bUCXFd8biM_saSUuUlUlbOnArS3q4OUlDPORdGHzXCwk6mSEoMN5F/exec";
     
     let partiesData = [];
     let currentSessions = { "Стрельцов А.В.": [], "Ишимцев А.Г.": [], "Новоселов Е.В.": [] };
     const ALL_PLAYERS = ["Стрельцов А.В.", "Ишимцев А.Г.", "Новоселов Е.В."];
     const STORAGE_KEY = "darts_live_data";
     let lastThrowInfo = { player: null, timestamp: 0 };
-    
-    // ✅ АВТОСОХРАНЕНИЕ
-    let hasUnsyncedChanges = false;
-    let autoSyncTimer = null;
-    let syncInProgress = false;
-    const AUTO_SYNC_INTERVAL = 60000; // 60 секунд
 
     function generateId() {
         return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
@@ -152,26 +145,11 @@
         } catch(e) { return false; }
     }
 
-    function markDirty() {
-        hasUnsyncedChanges = true;
-    }
-
-    function setSyncStatus(text, type = '') {
+    // ✅ НОВАЯ СИНХРОНИЗАЦИЯ — без CORS проблем
+    async function syncToCloud() {
         const statusDiv = document.getElementById('syncStatus');
-        statusDiv.innerHTML = text;
-        statusDiv.className = `sync-status ${type}`.trim();
-    }
-
-    // ✅ УЛУЧШЕННАЯ СИНХРОНИЗАЦИЯ
-    async function syncToCloud(isAuto = false) {
-        if (syncInProgress) return false;
-        syncInProgress = true;
-
-        if (!isAuto) {
-            setSyncStatus('☁️ Отправка данных в облако...', '');
-        } else {
-            setSyncStatus('🔄 Автосохранение...', 'autosave');
-        }
+        statusDiv.innerHTML = '☁️ Отправка данных в облако...';
+        statusDiv.className = 'sync-status';
 
         try {
             const body = new URLSearchParams({
@@ -190,30 +168,26 @@
                 throw new Error(result.error || 'Ошибка сохранения');
             }
 
-            hasUnsyncedChanges = false;
-            setSyncStatus(
-                `☁️ ${isAuto ? 'Автосохранение' : 'Данные сохранены'} ✅ (${result.saved || 0})`, 
-                'online'
-            );
+            statusDiv.innerHTML = `☁️ Данные сохранены в облако ✅ (${result.saved || 0})`;
+            statusDiv.className = 'sync-status online';
 
             setTimeout(() => {
-                if (!hasUnsyncedChanges) {
-                    setSyncStatus('☁️ Готово', 'online');
-                }
+                statusDiv.innerHTML = '☁️ Готово';
             }, 2000);
 
             return true;
         } catch (e) {
             console.error('Sync error:', e);
-            setSyncStatus('❌ Ошибка сохранения: ' + e.message, 'error');
+            statusDiv.innerHTML = '❌ Ошибка сохранения: ' + e.message;
+            statusDiv.className = 'sync-status error';
             return false;
-        } finally {
-            syncInProgress = false;
         }
     }
 
     async function syncFromCloud() {
-        setSyncStatus('☁️ Загрузка данных из облака...', '');
+        const statusDiv = document.getElementById('syncStatus');
+        statusDiv.innerHTML = '☁️ Загрузка данных из облака...';
+        statusDiv.className = 'sync-status';
 
         try {
             const url = `${SCRIPT_URL}?action=load`;
@@ -237,48 +211,26 @@
                 })).filter(p => p.player && p.scores.length === 10);
 
                 saveToLocalStorage();
-                hasUnsyncedChanges = false;
                 renderAll();
 
-                setSyncStatus(`☁️ Данные загружены из облака ✅ (${partiesData.length})`, 'online');
+                statusDiv.innerHTML = `☁️ Данные загружены из облака ✅ (${partiesData.length})`;
+                statusDiv.className = 'sync-status online';
             } else {
-                setSyncStatus('☁️ В облаке нет данных', 'offline');
+                statusDiv.innerHTML = '☁️ В облаке нет данных';
+                statusDiv.className = 'sync-status offline';
             }
 
             setTimeout(() => {
-                setSyncStatus('☁️ Готово', 'online');
+                statusDiv.innerHTML = '☁️ Готово';
             }, 2000);
 
             return true;
         } catch (e) {
             console.error('Load error:', e);
-            setSyncStatus('⚠️ Ошибка загрузки: ' + e.message, 'error');
+            statusDiv.innerHTML = '⚠️ Ошибка загрузки: ' + e.message;
+            statusDiv.className = 'sync-status error';
             return false;
         }
-    }
-
-    async function autoSyncTick() {
-        if (!navigator.onLine) {
-            setSyncStatus('📡 Нет сети, локальный режим', 'offline');
-            return;
-        }
-
-        if (!hasUnsyncedChanges) {
-            return;
-        }
-
-        if (syncInProgress) {
-            return;
-        }
-
-        await syncToCloud(true);
-    }
-
-    function startAutoSync() {
-        if (autoSyncTimer) {
-            clearInterval(autoSyncTimer);
-        }
-        autoSyncTimer = setInterval(autoSyncTick, AUTO_SYNC_INTERVAL);
     }
 
     function getTodayDate() { 
@@ -297,7 +249,6 @@
         });
         currentSessions[player] = [];
         saveToLocalStorage();
-        markDirty();
         renderAll();
         return true;
     }
@@ -347,8 +298,7 @@
 
     function deletePartyById(id) { 
         partiesData = partiesData.filter(p => p.id !== id); 
-        saveToLocalStorage();
-        markDirty();
+        saveToLocalStorage(); 
         renderAll(); 
     }
 
@@ -362,7 +312,6 @@
         partiesData[index].scores = [...newScores];
         partiesData[index].total = newScores.reduce((a,b)=>a+b,0);
         saveToLocalStorage();
-        markDirty();
         renderAll();
     }
 
@@ -376,9 +325,8 @@
     function resetAllHistory() { 
         if (confirm("Удалить ВСЕ партии?")) { 
             partiesData = []; 
-            saveToLocalStorage();
-            markDirty();
-            renderAll();
+            saveToLocalStorage(); 
+            renderAll(); 
         } 
     }
 
@@ -444,6 +392,7 @@
         }
         tbody.innerHTML = rows;
         
+        // Event listeners для кнопок редактирования/удаления
         document.querySelectorAll('.edit-btn').forEach(btn => {
             btn.onclick = () => { 
                 const id = btn.dataset.id;
@@ -564,8 +513,7 @@
                     "Ишимцев А.Г.": [], 
                     "Новоселов Е.В.": [] 
                 }; 
-                saveToLocalStorage();
-                markDirty();
+                saveToLocalStorage(); 
                 renderAll(); 
                 alert("Импорт успешен"); 
             } catch(err) { 
@@ -602,6 +550,7 @@
     }
 
     function setupEventListeners() {
+        // Кнопки игроков
         document.querySelectorAll('.player-live-btn').forEach(btn => {
             btn.onclick = () => { 
                 let points = parseInt(document.getElementById('manualScore').value); 
@@ -612,6 +561,7 @@
             };
         });
 
+        // Ручное добавление
         document.getElementById('manualAddBtn').onclick = () => { 
             let points = parseInt(document.getElementById('manualScore').value); 
             if (isNaN(points)) {
@@ -623,6 +573,7 @@
             else if (ans === "3") addThrow("Новоселов Е.В.", points);
         };
 
+        // Остальные кнопки
         document.getElementById('undoLastBtn').onclick = undoLastThrow;
         document.getElementById('resetSessionBtn').onclick = resetCurrentSessions;
         document.getElementById('resetAllBtn').onclick = resetAllHistory;
@@ -640,13 +591,15 @@
         };
         document.getElementById('filterStart').onchange = () => renderAll();
         document.getElementById('filterEnd').onchange = () => renderAll();
-        document.getElementById('syncNowBtn').onclick = () => syncToCloud(false);
+        document.getElementById('syncNowBtn').onclick = syncToCloud;
         document.getElementById('loadFromCloudBtn').onclick = syncFromCloud;
     }
 
+    // ✅ ИНИЦИАЛИЗАЦИЯ с попыткой загрузки из облака
     async function init() {
         loadFromLocalStorage();
 
+        // Проверяем корректность данных
         if (!Array.isArray(partiesData)) partiesData = [];
         if (!currentSessions || typeof currentSessions !== 'object') {
             currentSessions = {
@@ -658,23 +611,16 @@
 
         renderAll();
         setupEventListeners();
-        startAutoSync();
 
-        window.addEventListener('online', async () => {
-            setSyncStatus('🌐 Сеть восстановлена', 'online');
-            await autoSyncTick();
-        });
-
-        window.addEventListener('offline', () => {
-            setSyncStatus('📡 Нет сети, локальный режим', 'offline');
-        });
-
+        // Пытаемся загрузить из облака при старте, если есть сеть
         if (navigator.onLine) {
             setTimeout(async () => {
                 await syncFromCloud();
             }, 1000);
         } else {
-            setSyncStatus('📡 Нет сети, локальный режим', 'offline');
+            const statusDiv = document.getElementById('syncStatus');
+            statusDiv.innerHTML = '📡 Нет сети, локальный режим';
+            statusDiv.className = 'sync-status offline';
         }
     }
 
