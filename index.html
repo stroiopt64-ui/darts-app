@@ -72,10 +72,8 @@
         <div id="currentSessionDisplay" class="current-session"><span>Нет бросков</span></div>
 
         <div class="live-buttons" id="liveButtons">
-            <button class="player-live-btn" data-player="Стрельцов А.В.">🎯 Стрельцов А.В.</button>
-            <button class="player-live-btn" data-player="Ишимцев А.Г.">🎯 Ишимцев А.Г.</button>
-            <button class="player-live-btn" data-player="Новоселов Е.В.">🎯 Новоселов Е.В.</button>
-        </div>
+    <!-- кнопки будут рисоваться в JS -->
+</div>
 
         <div class="score-input-group">
             <select id="scoreSelect">
@@ -121,17 +119,24 @@
 
     <div id="ratingArea"></div>
     <div id="recordsArea" class="record-box"></div>
+    <div style="display:flex; gap:6px; margin-top:6px; align-items:center; flex-wrap:wrap;">
+    <span>➕ Игрок:</span>
+    <input type="text" id="newPlayerInput" placeholder="Стрельцов А.В." style="padding:6px 10px; border-radius:30px; border:none; background:#1d3522; color:#ffefcf; flex:1;">
+    <button id="addPlayerBtn" style="padding:6px 12px; background:#2e7d32; border:none; border-radius:30px; color:white; cursor:pointer; font-size:0.7rem;">Добавить</button>
+</div>
     <div class="footer">✅ Автосохранение каждые 60 сек. Данные в Google Таблицу. Работает офлайн.</div>
 </div>
 
 <script>
     // ========== НАСТРОЙКИ ==========
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwJGGpAICLDYJ1bUCXFd8biM_saSUuUlUlbOnArS3q4OUlDPORdGHzXCwk6mSEoMN5F/exec";
-    
-    let partiesData = [];
-    let currentSessions = { "Стрельцов А.В.": [], "Ишимцев А.Г.": [], "Новоселов Е.В.": [] };
-    const ALL_PLAYERS = ["Стрельцов А.В.", "Ишимцев А.Г.", "Новоселов Е.В."];
+   const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwJGGpAICLDYJ1bUCXFd8biM_saSUuUlUlbOnArS3q4OUlDPORdGHzXCwk6mSEoMN5F/exec";
+
     const STORAGE_KEY = "darts_live_data";
+    const ALL_PLAYERS_KEY = "darts_all_players";
+
+    let partiesData = [];
+    let currentSessions = {};  // не фиксируем игроков жёстко
+    let allPlayers = ["Стрельцов А.В.", "Ишимцев А.Г.", "Новоселов Е.В."];
     let lastThrowInfo = { player: null, timestamp: 0 };
     
     // ✅ АВТОСОХРАНЕНИЕ
@@ -139,7 +144,57 @@
     let autoSyncTimer = null;
     let syncInProgress = false;
     const AUTO_SYNC_INTERVAL = 60000; // 60 секунд
+// =========== РАБОТА СО СПИСКОМ ИГРОКОВ ===========
 
+function loadAllPlayersFromStorage() {
+    const raw = localStorage.getItem(ALL_PLAYERS_KEY);
+    const defaults = ["Стрельцов А.В.", "Ишимцев А.Г.", "Новоселов Е.В."];
+    if (!raw) return defaults;
+    try {
+        const loaded = JSON.parse(raw);
+        return Array.isArray(loaded) ? loaded.filter(x => x && x.trim()) : defaults;
+    } catch (e) {
+        return defaults;
+    }
+}
+
+function saveAllPlayersToStorage() {
+    localStorage.setItem(ALL_PLAYERS_KEY, JSON.stringify(allPlayers));
+}
+
+function ensureCurrentSessionsHavePlayers() {
+    for (const p of allPlayers) {
+        if (!currentSessions[p]) {
+            currentSessions[p] = [];
+        }
+    }
+    for (const p in currentSessions) {
+        if (!allPlayers.includes(p)) {
+            delete currentSessions[p];
+        }
+    }
+}
+
+// =========== РИСОВАНИЕ КНОПОК ИГРОКОВ ===========
+
+function renderLiveButtons() {
+    const container = document.getElementById('liveButtons');
+    container.innerHTML = '';
+    for (const p of allPlayers) {
+        const btn = document.createElement('button');
+        btn.className = 'player-live-btn';
+        btn.dataset.player = p;
+        btn.textContent = '🎯 ' + p;
+        btn.onclick = () => {
+            let points = parseInt(document.getElementById('manualScore').value);
+            if (isNaN(points)) {
+                points = parseInt(document.getElementById('scoreSelect').value);
+            }
+            addThrow(p, points);
+        };
+        container.appendChild(btn);
+    }
+}
     function generateId() {
         return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     }
@@ -309,31 +364,37 @@
         return true;
     }
 
-    function addThrow(player, points) {
-        if (points < 0 || points > 180) { 
-            alert("Очки от 0 до 180"); 
-            return false; 
-        }
-        currentSessions[player].push(points);
-        lastThrowInfo = { player, timestamp: Date.now() };
-        const btn = document.querySelector(`.player-live-btn[data-player="${player}"]`);
-        if (btn) { 
-            btn.classList.add('flash'); 
-            setTimeout(() => btn.classList.remove('flash'), 300); 
-        }
-        if (currentSessions[player].length === 10) {
-            saveParty(player, [...currentSessions[player]]);
-        } else { 
-            saveToLocalStorage(); 
-            renderAll(); 
-        }
-        return true;
+ function addThrow(player, points) {
+    if (points < 0 || points > 180) { 
+        alert("Очки от 0 до 180"); 
+        return false; 
     }
+
+    if (!currentSessions[player]) {
+        currentSessions[player] = [];
+    }
+
+    currentSessions[player].push(points);
+    lastThrowInfo = { player, timestamp: Date.now() };
+    const btn = document.querySelector(`.player-live-btn[data-player="${player}"]`);
+    if (btn) { 
+        btn.classList.add('flash'); 
+        setTimeout(() => btn.classList.remove('flash'), 300); 
+    }
+
+    if (currentSessions[player].length === 10) {
+        saveParty(player, [...currentSessions[player]]);
+    } else { 
+        saveToLocalStorage(); 
+        renderAll(); 
+    }
+    return true;
+}
 
     function undoLastThrow() {
         let lastPlayer = lastThrowInfo.player;
         if (!lastPlayer || !currentSessions[lastPlayer]?.length) {
-            for (let p of ALL_PLAYERS) { 
+            for (let p of allPlayers) { 
                 if (currentSessions[p].length > 0) { 
                     lastPlayer = p; 
                     break; 
@@ -374,7 +435,7 @@
     }
 
     function resetCurrentSessions() { 
-        for (let p of ALL_PLAYERS) currentSessions[p] = []; 
+        for (let p of allPlayers) currentSessions[p] = []; 
         lastThrowInfo = { player: null, timestamp: 0 }; 
         saveToLocalStorage(); 
         renderAll(); 
@@ -391,7 +452,7 @@
 
     function computeStats() {
         const map = new Map();
-        for (let p of ALL_PLAYERS) {
+        for (let p of allPlayers) {
             map.set(p, { parties: 0, totalPoints: 0, bestParty: 0 });
         }
         for (let party of partiesData) {
@@ -474,7 +535,7 @@
     function renderCurrentSession() {
         let html = '';
         const now = Date.now();
-        for (let player of ALL_PLAYERS) {
+        for (let player of allPlayers) {
             const throws = currentSessions[player];
             const cnt = throws.length;
             const sum = throws.reduce((a,b)=>a+b,0);
@@ -610,80 +671,110 @@
 
     function setupEventListeners() {
         document.querySelectorAll('.player-live-btn').forEach(btn => {
-            btn.onclick = () => { 
-                let points = parseInt(document.getElementById('manualScore').value); 
-                if (isNaN(points)) {
-                    points = parseInt(document.getElementById('scoreSelect').value);
-                }
-                addThrow(btn.dataset.player, points); 
-            };
-        });
-
-        document.getElementById('manualAddBtn').onclick = () => { 
+        btn.onclick = () => { 
             let points = parseInt(document.getElementById('manualScore').value); 
             if (isNaN(points)) {
                 points = parseInt(document.getElementById('scoreSelect').value);
             }
-            const ans = prompt("1-Стрельцов,2-Ишимцев,3-Новоселов","1");
-            if (ans === "1") addThrow("Стрельцов А.В.", points);
-            else if (ans === "2") addThrow("Ишимцев А.Г.", points);
-            else if (ans === "3") addThrow("Новоселов Е.В.", points);
+            addThrow(btn.dataset.player, points);
         };
+    });
 
-        document.getElementById('undoLastBtn').onclick = undoLastThrow;
-        document.getElementById('resetSessionBtn').onclick = resetCurrentSessions;
-        document.getElementById('resetAllBtn').onclick = resetAllHistory;
-        document.getElementById('exportBtn').onclick = exportData;
-        document.getElementById('importBtn').onclick = () => document.getElementById('importFileInput').click();
-        document.getElementById('importFileInput').onchange = (e) => { 
-            if (e.target.files[0]) importData(e.target.files[0]); 
-            e.target.value = ''; 
-        };
-        document.getElementById('printBtn').onclick = printReport;
-        document.getElementById('clearFilterBtn').onclick = () => { 
-            document.getElementById('filterStart').value = ''; 
-            document.getElementById('filterEnd').value = ''; 
-            renderAll(); 
-        };
-        document.getElementById('filterStart').onchange = () => renderAll();
-        document.getElementById('filterEnd').onchange = () => renderAll();
-        document.getElementById('syncNowBtn').onclick = () => syncToCloud(false);
-        document.getElementById('loadFromCloudBtn').onclick = syncFromCloud;
-    }
+    document.getElementById('manualAddBtn').onclick = () => { 
+        let points = parseInt(document.getElementById('manualScore').value); 
+        if (isNaN(points)) {
+            points = parseInt(document.getElementById('scoreSelect').value);
+        }
+        const ans = prompt("1-Стрельцов,2-Ишимцев,3-Новоселов","1");
+        if (ans === "1") addThrow("Стрельцов А.В.", points);
+        else if (ans === "2") addThrow("Ишимцев А.Г.", points);
+        else if (ans === "3") addThrow("Новоселов Е.В.", points);
+    };
+
+    document.getElementById('undoLastBtn').onclick = undoLastThrow;
+    document.getElementById('resetSessionBtn').onclick = resetCurrentSessions;
+    document.getElementById('resetAllBtn').onclick = resetAllHistory;
+    document.getElementById('exportBtn').onclick = exportData;
+    document.getElementById('importBtn').onclick = () => document.getElementById('importFileInput').click();
+    document.getElementById('importFileInput').onchange = (e) => { 
+        if (e.target.files[0]) importData(e.target.files[0]); 
+        e.target.value = ''; 
+    };
+    document.getElementById('printBtn').onclick = printReport;
+    document.getElementById('clearFilterBtn').onclick = () => { 
+        document.getElementById('filterStart').value = ''; 
+        document.getElementById('filterEnd').value = ''; 
+        renderAll(); 
+    };
+    document.getElementById('filterStart').onchange = () => renderAll();
+    document.getElementById('filterEnd').onchange = () => renderAll();
+    document.getElementById('syncNowBtn').onclick = () => syncToCloud(false);
+    document.getElementById('loadFromCloudBtn').onclick = syncFromCloud;
+    document.getElementById('addPlayerBtn').onclick = () => {
+        const input = document.getElementById('newPlayerInput');
+        const name = (input.value || '').trim();
+        if (!name) {
+            alert('Введите имя игрока');
+            return;
+        }
+        if (allPlayers.includes(name)) {
+            alert('Игрок уже есть в списке');
+            return;
+        }
+
+        allPlayers = [...allPlayers, name];
+        saveAllPlayersToStorage();
+        ensureCurrentSessionsHavePlayers();
+        renderLiveButtons();
+        renderAll();
+
+        input.value = '';
+    };
+}
 
     async function init() {
-        loadFromLocalStorage();
-
-        if (!Array.isArray(partiesData)) partiesData = [];
-        if (!currentSessions || typeof currentSessions !== 'object') {
-            currentSessions = {
-                "Стрельцов А.В.": [],
-                "Ишимцев А.Г.": [],
-                "Новоселов Е.В.": []
-            };
-        }
-
-        renderAll();
-        setupEventListeners();
-        startAutoSync();
-
-        window.addEventListener('online', async () => {
-            setSyncStatus('🌐 Сеть восстановлена', 'online');
-            await autoSyncTick();
-        });
-
-        window.addEventListener('offline', () => {
-            setSyncStatus('📡 Нет сети, локальный режим', 'offline');
-        });
-
-        if (navigator.onLine) {
-            setTimeout(async () => {
-                await syncFromCloud();
-            }, 1000);
-        } else {
-            setSyncStatus('📡 Нет сети, локальный режим', 'offline');
-        }
+    // 1. Загрузка списка игроков
+    allPlayers = loadAllPlayersFromStorage();
+    if (!Array.isArray(allPlayers)) {
+        allPlayers = ["Стрельцов А.В.", "Ишимцев А.Г.", "Новоселов Е.В."];
     }
+    ensureCurrentSessionsHavePlayers();
+
+    // 2. Загрузка данных
+    loadFromLocalStorage();
+
+    if (!Array.isArray(partiesData)) {
+        partiesData = [];
+    }
+    if (!currentSessions || typeof currentSessions !== 'object') {
+        currentSessions = {};
+    }
+    ensureCurrentSessionsHavePlayers();
+
+    // 3. Отрисовка и установка слушателей
+    renderAll();
+    renderLiveButtons();
+    setupEventListeners();
+    startAutoSync();
+
+    // 4. Обработчики онлайна/оффлайна
+    window.addEventListener('online', async () => {
+        setSyncStatus('🌐 Сеть восстановлена', 'online');
+        await autoSyncTick();
+    });
+
+    window.addEventListener('offline', () => {
+        setSyncStatus('📡 Нет сети, локальный режим', 'offline');
+    });
+
+    if (navigator.onLine) {
+        setTimeout(async () => {
+            await syncFromCloud();
+        }, 1000);
+    } else {
+        setSyncStatus('📡 Нет сети, локальный режим', 'offline');
+    }
+}
 
     init();
 </script>
