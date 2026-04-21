@@ -119,10 +119,13 @@
 
     <div id="ratingArea"></div>
     <div id="recordsArea" class="record-box"></div>
-    <div style="display:flex; gap:6px; margin-top:6px; align-items:center; flex-wrap:wrap;">
+   <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; align-items:center;">
     <span>➕ Игрок:</span>
     <input type="text" id="newPlayerInput" placeholder="Стрельцов А.В." style="padding:6px 10px; border-radius:30px; border:none; background:#1d3522; color:#ffefcf; flex:1;">
     <button id="addPlayerBtn" style="padding:6px 12px; background:#2e7d32; border:none; border-radius:30px; color:white; cursor:pointer; font-size:0.7rem;">Добавить</button>
+    <span>🗑️ Удалить:</span>
+    <select id="playerDeleteSelect" style="padding:6px 10px; border-radius:30px; border:none; background:#1d3522; color:#ffefcf; flex:1;"></select>
+    <button id="deletePlayerBtn" style="padding:6px 12px; background:#c62828; border:none; border-radius:30px; color:white; cursor:pointer; font-size:0.7rem;">Удалить</button>
 </div>
     <div class="footer">✅ Автосохранение каждые 60 сек. Данные в Google Таблицу. Работает офлайн.</div>
 </div>
@@ -668,7 +671,45 @@ function renderLiveButtons() {
         win.document.close(); 
         win.print(); 
     }
+function deletePlayer(name) {
+    if (!allPlayers.includes(name)) {
+        alert(`Игрок "${name}" не найден в списке`);
+        return false;
+    }
 
+    if (!confirm(`Удалить игрока "${name}" и ВСЕ его партии?`)) {
+        return false;
+    }
+
+    // 1. Удалить из списка игроков
+    allPlayers = allPlayers.filter(p => p !== name);
+    saveAllPlayersToStorage();
+
+    // 2. Удалить все его партии
+    partiesData = partiesData.filter(p => p.player !== name);
+    saveToLocalStorage();
+    markDirty();
+
+    // 3. Удалить его сессии
+    if (currentSessions[name]) {
+        delete currentSessions[name];
+        saveToLocalStorage();
+    }
+
+    renderAll();      // обновить таблицу, статистику, рейтинг
+    renderLiveButtons(); // обновить кнопки (игрока уже не будет в списке)
+    return true;
+}
+function fillDeletePlayerSelect() {
+    const select = document.getElementById('playerDeleteSelect');
+    select.innerHTML = '';
+    for (const p of allPlayers) {
+        const opt = document.createElement('option');
+        opt.value = p;
+        opt.textContent = p;
+        select.appendChild(opt);
+    }
+}
     function setupEventListeners() {
         document.querySelectorAll('.player-live-btn').forEach(btn => {
         btn.onclick = () => { 
@@ -730,6 +771,14 @@ function renderLiveButtons() {
 
         input.value = '';
     };
+        document.getElementById('deletePlayerBtn').onclick = () => {
+        const name = document.getElementById('playerDeleteSelect').value;
+        if (!name) {
+            alert('Сначала выберите игрока');
+            return;
+        }
+        deletePlayer(name);
+    };
 }
 
     async function init() {
@@ -754,6 +803,7 @@ function renderLiveButtons() {
     // 3. Отрисовка и установка слушателей
     renderAll();
     renderLiveButtons();
+    fillDeletePlayerSelect();
     setupEventListeners();
     startAutoSync();
 
